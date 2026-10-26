@@ -66,9 +66,9 @@ internal static class NativeWindow
     internal static bool CoveredByTaskbar(Rect bounds, IntPtr taskbar)
     {
         if (taskbar == IntPtr.Zero || bounds.Width <= 0 || bounds.Height <= 0) return false;
-        foreach (var fraction in new[] { .25, .5, .75 })
+        for (var sample = 1; sample <= 3; sample++)
         {
-            var covering = GetAncestor(WindowFromPoint(new Point { X = bounds.Left + (int)(bounds.Width * fraction), Y = bounds.Top + bounds.Height / 2 }), 2);
+            var covering = GetAncestor(WindowFromPoint(new Point { X = bounds.Left + bounds.Width * sample / 4, Y = bounds.Top + bounds.Height / 2 }), 2);
             if (covering == taskbar) return true;
         }
         return false;

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -36,6 +37,9 @@ internal sealed class MediaService : IDisposable
     private double _rate = 1;
     private sealed record PendingSeek(double Target, DateTimeOffset Baseline, DateTimeOffset Requested, DateTimeOffset Deadline);
     private PendingSeek? _pendingSeek;
+    private byte[]? _lastArtworkHash;
+    private ImageSource? _lastArtwork;
+    public bool HasPendingSeek => _pendingSeek != null;
     public bool? LastSeekConfirmed { get; private set; }
     public double PositionSeconds => Math.Clamp((_position + (State.Playing ? TimeSpan.FromSeconds(Math.Max(0, (DateTimeOffset.UtcNow - _positionAt).TotalSeconds) * _rate) : TimeSpan.Zero)).TotalSeconds, 0, Math.Max(0, State.Duration));
     public MediaState State { get; private set; } = new();
@@ -269,7 +273,7 @@ internal sealed class MediaService : IDisposable
     }
     internal static bool SameTrack(MediaState state, string title, string artist, string album) => state.Available && state.Title == title && state.Artist == artist && state.Album == album;
     internal static ImageSource? ResolveArtwork(MediaState state, string title, string artist, string album, ImageSource? artwork) => artwork ?? (SameTrack(state, title, artist, album) ? state.Artwork : null);
-    private static async Task<ImageSource?> LoadArtworkAsync(IRandomAccessStreamReference thumbnail, CancellationToken token)
+    private async Task<ImageSource?> LoadArtworkAsync(IRandomAccessStreamReference thumbnail, CancellationToken token)
     {
         using var stream = await thumbnail.OpenReadAsync().AsTask(token).ConfigureAwait(false);
         if (stream.Size == 0 || stream.Size >= 8 * 1024 * 1024) return null;
@@ -277,10 +281,13 @@ internal sealed class MediaService : IDisposable
         using var buffer = new MemoryStream((int)stream.Size);
         await input.CopyToAsync(buffer, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
+        var hash = SHA256.HashData(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+        if (_lastArtworkHash != null && hash.AsSpan().SequenceEqual(_lastArtworkHash)) return _lastArtwork;
         buffer.Position = 0;
         var bitmap = new BitmapImage();
         bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 128;
         bitmap.StreamSource = buffer; bitmap.EndInit(); bitmap.Freeze();
+        _lastArtworkHash = hash; _lastArtwork = bitmap;
         return bitmap;
     }
     public async Task ControlAsync(string action)

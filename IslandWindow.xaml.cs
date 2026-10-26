@@ -195,7 +195,8 @@ public partial class IslandWindow : Window
         {
             if (_focus.Tick()) { Alert("Таймер завершён. Пора отдохнуть.", 8); _tray.ShowBalloonTip(4000, "Quiet Island", UiText.T("Таймер завершён. Пора отдохнуть."), Forms.ToolTipIcon.Info); }
             _media.ReconcileSeek();
-            if (Opacity > 0) RefreshContent();
+            if (Opacity > 0) RefreshDynamicContent();
+            UpdateClockState();
         };
         SystemEvents.DisplaySettingsChanged += DisplayChanged;
         SystemEvents.PowerModeChanged += PowerChanged;
@@ -340,6 +341,8 @@ public partial class IslandWindow : Window
         if (Opacity != (show ? 1 : 0))
         {
             _visibilityTransitions++; Opacity = show ? 1 : 0;
+            if (show) RefreshDynamicContent();
+            UpdateClockState();
         }
     }
     public void OpenPanel()
@@ -364,21 +367,34 @@ public partial class IslandWindow : Window
         if (_closing) return;
         var state = _media.State;
         TrackTitle.Text = state.Available ? (state.Title == "Медиа" ? UiText.T(state.Title) : state.Title) : "Quiet Island";
-        var line = _lyrics.At(_media.PositionSeconds + _settings.LyricsOffsetMs / 1000.0).current;
-        TrackDetail.Text = _seeking || _seekPending ? UiText.T("Перемотка · ") + TimeSpan.FromSeconds(SeekSlider.Value).ToString(@"m\:ss") : DateTimeOffset.UtcNow < _alertUntil ? UiText.T(_alert) : _focus.Active ? UiText.T("Фокус · ") + _focus.Display :
-            _settings.ShowLyrics && _lyrics.Document.Lines.Count > 0 ? line : state.Available ? state.Artist : UiText.T("Включите музыку в любимом плеере");
         TrackDetail.ToolTip = _settings.ShowLyrics ? UiText.T(_lyrics.Document.Status) : state.Artist;
-        Artwork.Source = state.Artwork;
+        if (!ReferenceEquals(Artwork.Source, state.Artwork)) Artwork.Source = state.Artwork;
         FallbackIcon.Visibility = state.Artwork == null ? Visibility.Visible : Visibility.Collapsed;
         PlayPath.Data = state.Playing ? PauseGeometry : PlayGeometry;
         PlayPause.IsEnabled = state.Available && state.CanPlayPause;
         Previous.IsEnabled = state.Available && state.CanPrevious; Next.IsEnabled = state.Available && state.CanNext;
         SeekSlider.IsEnabled = state.Available && state.CanSeek && state.Duration > 0;
+        LyricsButton.Opacity = _settings.ShowLyrics ? 1 : 0.55;
+        RefreshDynamicContent(); UpdateClockState();
+    }
+    private void RefreshDynamicContent()
+    {
+        if (_closing) return;
+        var state = _media.State;
+        var detail = _seeking || _seekPending ? UiText.T("Перемотка · ") + TimeSpan.FromSeconds(SeekSlider.Value).ToString(@"m\:ss") : DateTimeOffset.UtcNow < _alertUntil ? UiText.T(_alert) : _focus.Active ? UiText.T("Фокус · ") + _focus.Display :
+            _settings.ShowLyrics && _lyrics.Document.Lines.Count > 0 ? _lyrics.At(_media.PositionSeconds + _settings.LyricsOffsetMs / 1000.0).current : state.Available ? state.Artist : UiText.T("Включите музыку в любимом плеере");
+        if (TrackDetail.Text != detail) TrackDetail.Text = detail;
         if (!_seeking && !_seekPending)
         {
             _syncSeek = true; SeekSlider.Maximum = Math.Max(1, state.Duration); SeekSlider.Value = _media.PositionSeconds; _syncSeek = false;
         }
-        LyricsButton.Opacity = _settings.ShowLyrics ? 1 : 0.55;
+    }
+    private void UpdateClockState()
+    {
+        if (_clock == null) return;
+        var needed = !_closing && !_locked && !_suspended && (_focus.Running || _media.HasPendingSeek ||
+            (Opacity > 0 && (_media.State.Playing || _seekPending || DateTimeOffset.UtcNow < _alertUntil)));
+        if (needed) _clock.Start(); else _clock.Stop();
     }
     private void LyricsClick(object sender, RoutedEventArgs e) { _settings.ShowLyrics = !_settings.ShowLyrics; Save(); RefreshContent(); if (_settings.ShowLyrics && _lyrics.Document.Lines.Count == 0) Alert(_lyrics.Document.Status, 5); }
     private async void PlayPauseClick(object sender, RoutedEventArgs e) => await _media.ControlAsync("toggle");
@@ -436,7 +452,7 @@ public partial class IslandWindow : Window
     private void UpdateTimers()
     {
         if (_locked || _suspended) { _pulse.Stop(); _clock.Stop(); Opacity = 0; }
-        else { _pulse.Start(); _clock.Start(); _space.Refresh(true); }
+        else { _pulse.Start(); UpdateClockState(); _space.Refresh(true); }
     }
     public void HandleCommand(string command)
     {
