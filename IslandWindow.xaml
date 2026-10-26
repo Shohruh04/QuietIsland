@@ -1,11 +1,24 @@
 <Window x:Class="QuietIsland.IslandWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  Title="Quiet Island" Width="480" Height="48" WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent" ShowInTaskbar="False" ShowActivated="False" Topmost="True" Focusable="False" UseLayoutRounding="True" SnapsToDevicePixels="True">
+ <Window.Resources>
+  <Style TargetType="ToolTip">
+   <Setter Property="Foreground" Value="{DynamicResource IslandText}"/>
+   <Setter Property="Background" Value="{DynamicResource IslandTooltipBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource IslandBorder}"/>
+   <Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="10,6"/>
+   <Setter Property="Placement" Value="Top"/><Setter Property="VerticalOffset" Value="-6"/>
+   <Setter Property="HasDropShadow" Value="False"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip">
+    <Border CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" TextWrapping="Wrap" MaxWidth="360"/></Border>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+ </Window.Resources>
  <Border x:Name="Shell" CornerRadius="6" BorderThickness="1">
   <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0.6,1"><GradientStop Color="#D34C5868"/><GradientStop Color="#DA202A36" Offset="0.38"/><GradientStop Color="#DE121A24" Offset="1"/></LinearGradientBrush></Border.Background>
   <Border.BorderBrush><LinearGradientBrush StartPoint="0,0" EndPoint="0.8,1"><GradientStop Color="#BFE9F5FF"/><GradientStop Color="#3454697C" Offset="0.45"/><GradientStop Color="#6998B0C8" Offset="1"/></LinearGradientBrush></Border.BorderBrush>
   <Grid>
    <Border CornerRadius="5" Margin="1" BorderThickness="1" IsHitTestVisible="False"><Border.BorderBrush><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#39FFFFFF"/><GradientStop Color="#00FFFFFF" Offset="0.4"/><GradientStop Color="#185EDCFF" Offset="1"/></LinearGradientBrush></Border.BorderBrush></Border>
-   <Grid Margin="8,4,8,4">
+   <Grid Margin="8,7,8,2">
     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <Border x:Name="ArtBorder" Width="36" Height="36" CornerRadius="5" Background="{DynamicResource IslandArtBackground}" BorderBrush="{DynamicResource IslandBorder}" BorderThickness="1" VerticalAlignment="Center">
      <Grid><TextBlock x:Name="FallbackIcon" Text="&#xE8D6;" FontFamily="Segoe Fluent Icons" FontSize="18" Foreground="{DynamicResource IslandText}" VerticalAlignment="Center" HorizontalAlignment="Center"/><Image x:Name="Artwork" Stretch="UniformToFill"><Image.Clip><RectangleGeometry x:Name="ArtworkClip" Rect="0,0,34,34" RadiusX="4" RadiusY="4"/></Image.Clip></Image></Grid>
@@ -21,7 +34,7 @@
      <Button x:Name="LyricsButton" Click="LyricsClick" Width="28" Height="30" Padding="7" Background="Transparent" BorderBrush="Transparent" ToolTip="Текст песни / исполнитель" AutomationProperties.Name="Показать текст песни"><Path Data="M 0,1 L 12,1 M 0,5 L 12,5 M 0,9 L 8,9" Stroke="{DynamicResource IslandSecondary}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform"/></Button>
     </StackPanel>
    </Grid>
-   <Slider x:Name="SeekSlider" Cursor="Hand" Height="7" VerticalAlignment="Bottom" Margin="6,0,6,0" Minimum="0" Maximum="100" Focusable="False" IsMoveToPointEnabled="True" PreviewMouseLeftButtonDown="SeekStart" PreviewMouseLeftButtonUp="SeekEnd" ValueChanged="SeekChanged" ToolTip="Перемотка — нажмите или перетащите" AutomationProperties.Name="Позиция воспроизведения">
+   <Slider x:Name="SeekSlider" Cursor="Hand" Height="9" VerticalAlignment="Top" Margin="6,0,6,0" Minimum="0" Maximum="100" Focusable="False" IsMoveToPointEnabled="False" PreviewMouseLeftButtonDown="SeekStart" PreviewMouseMove="SeekMove" PreviewMouseLeftButtonUp="SeekEnd" LostMouseCapture="SeekCaptureLost" ValueChanged="SeekChanged" ToolTipService.IsEnabled="False" AutoToolTipPlacement="None" AutomationProperties.Name="Позиция воспроизведения">
     <Slider.Template><ControlTemplate TargetType="Slider"><Grid Background="Transparent"><Track x:Name="PART_Track"><Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="2" Background="{DynamicResource IslandText}" VerticalAlignment="Bottom" Margin="0,0,0,1"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton><Track.Thumb><Thumb Width="5"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Width="5" Height="5" CornerRadius="2" Background="{DynamicResource IslandText}" VerticalAlignment="Bottom"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb><Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="2" Background="{DynamicResource IslandTrackBackground}" VerticalAlignment="Bottom" Margin="0,0,0,1"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton></Track></Grid></ControlTemplate></Slider.Template>
    </Slider>
   </Grid>

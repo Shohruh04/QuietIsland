@@ -20,18 +20,20 @@ internal sealed record ThemePalette(string Id, string Name, string Background, s
     };
     private static Color Parse(string hex) => (Color)ColorConverter.ConvertFromString(hex);
     private static SolidColorBrush Brush(Color color) { var brush = new SolidColorBrush(color); brush.Freeze(); return brush; }
-    public void Apply(Window window, System.Windows.Controls.Border surface)
+    public void Apply(Window window, System.Windows.Controls.Border surface, int opacityPercent = 90)
     {
         var bg = Parse(Background); var fg = Parse(Foreground); var border = Parse(Border);
         window.Resources["IslandText"] = Brush(fg);
+        window.Resources["IslandTooltipBackground"] = Brush(bg);
         window.Resources["IslandSecondary"] = Brush(Parse(Secondary));
         window.Resources["IslandBorder"] = Brush(border);
         window.Resources["IslandControl"] = Brush(fg);
         window.Resources["IslandControlText"] = Brush(bg);
         window.Resources["IslandArtBackground"] = Brush(border);
         window.Resources["IslandTrackBackground"] = Brush(Color.FromArgb(40, fg.R, fg.G, fg.B));
-        var top = Color.FromArgb(245, (byte)(bg.R * .91 + fg.R * .09), (byte)(bg.G * .91 + fg.G * .09), (byte)(bg.B * .91 + fg.B * .09));
-        var bottom = Color.FromArgb(245, bg.R, bg.G, bg.B);
+        var alpha = (byte)System.Math.Round(System.Math.Clamp(opacityPercent, 20, 100) * 2.55);
+        var top = Color.FromArgb(alpha, (byte)(bg.R * .91 + fg.R * .09), (byte)(bg.G * .91 + fg.G * .09), (byte)(bg.B * .91 + fg.B * .09));
+        var bottom = Color.FromArgb(alpha, bg.R, bg.G, bg.B);
         var fill = new LinearGradientBrush(top, bottom, new Point(0, 0), new Point(.4, 1)); fill.Freeze(); surface.Background = fill;
         var edge = new LinearGradientBrush(); edge.StartPoint = new Point(0, 0); edge.EndPoint = new Point(.6, 1);
         edge.GradientStops.Add(new GradientStop(Color.FromArgb(110, fg.R, fg.G, fg.B), 0));

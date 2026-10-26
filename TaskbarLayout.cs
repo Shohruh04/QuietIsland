@@ -8,12 +8,12 @@ namespace QuietIsland;
 internal static class TaskbarLayout
 {
     // All inputs and output are physical pixels. Reserve every observed button.
-    public static Rect? Choose(NativeWindow.Rect bar, int trayLeft, IReadOnlyList<Rect> buttons, double scale, string placement)
+    public static Rect? Choose(NativeWindow.Rect bar, int trayLeft, IReadOnlyList<Rect> buttons, double scale, string placement, int widthDip = 480)
     {
         if (bar.Width <= bar.Height || bar.Height < 24 * scale) return null;
         var margin = 8 * scale;
         var minimum = 280 * scale;
-        var desired = 480 * scale;
+        var desired = Math.Clamp(widthDip, 280, 1200) * scale;
         var end = Math.Min(bar.Right, trayLeft) - margin;
         var cursor = (double)bar.Left;
         var gaps = new List<(double left, double right)>();

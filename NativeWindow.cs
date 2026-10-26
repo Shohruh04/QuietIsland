@@ -24,7 +24,23 @@ internal static class NativeWindow
     [DllImport("user32.dll")] internal static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int width, int height, uint flags);
     public static void RaiseWithoutFocus(IntPtr h) => SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x0013);
+    private delegate void WinEventCallback(IntPtr hook, uint eventId, IntPtr window, int objectId, int childId, uint threadId, uint time);
+    [DllImport("user32.dll")] private static extern IntPtr SetWinEventHook(uint first, uint last, IntPtr module, WinEventCallback callback, uint process, uint thread, uint flags);
+    [DllImport("user32.dll")] private static extern bool UnhookWinEvent(IntPtr hook);
+    internal sealed class ForegroundWatch : IDisposable
+    {
+        private readonly WinEventCallback _callback;
+        private IntPtr _hook;
+        public ForegroundWatch(Action changed)
+        {
+            _callback = (_, _, _, _, _, _, _) => changed();
+            _hook = SetWinEventHook(3, 3, IntPtr.Zero, _callback, 0, 0, 2); // EVENT_SYSTEM_FOREGROUND, skip this process.
+        }
+        public void Dispose() { if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; } GC.KeepAlive(_callback); }
+    }
     [DllImport("user32.dll")] internal static extern bool GetWindowRect(IntPtr h, out Rect r);
+    [DllImport("user32.dll")] internal static extern uint GetDpiForWindow(IntPtr h);
+    internal static void PlaceWithoutFocus(IntPtr h, System.Windows.Rect bounds) => SetWindowPos(h, new IntPtr(-1), (int)bounds.Left, (int)bounds.Top, (int)bounds.Width, (int)bounds.Height, 0x0010);
     [DllImport("user32.dll")] internal static extern bool GetCursorPos(out Point p);
     [DllImport("user32.dll")] internal static extern int GetWindowLong(IntPtr h, int n);
     [DllImport("user32.dll")] internal static extern int SetWindowLong(IntPtr h, int n, int value);
@@ -40,25 +56,34 @@ internal static class NativeWindow
     [DllImport("shell32.dll")] private static extern UIntPtr SHAppBarMessage(uint message, ref AppbarData data);
     [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr h, int attribute, out Rect rect, int size);
 
-    public static MonitorInfo PrimaryMonitor()
+    public static MonitorInfo PrimaryMonitor(IntPtr taskbar = default)
     {
-        var taskbar = FindWindow("Shell_TrayWnd", null);
+        if (taskbar == IntPtr.Zero) taskbar = FindWindow("Shell_TrayWnd", null);
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
         GetMonitorInfo(MonitorFromWindow(taskbar, 1), ref info);
         return info;
     }
     public static IntPtr TaskbarHandle() => FindWindow("Shell_TrayWnd", null);
+    public static IntPtr TaskbarHandle(string device)
+    {
+        var primary = TaskbarHandle();
+        if (string.IsNullOrEmpty(device) || System.Windows.Forms.Screen.FromHandle(primary).DeviceName == device) return primary;
+        var handle = IntPtr.Zero;
+        while ((handle = FindWindowEx(IntPtr.Zero, handle, "Shell_SecondaryTrayWnd", null)) != IntPtr.Zero)
+            if (System.Windows.Forms.Screen.FromHandle(handle).DeviceName == device) return handle;
+        return primary; // A disconnected display or disabled secondary taskbar falls back safely.
+    }
 
     // Pixels, not WPF DIPs. Query only on placement changes, never every frame.
-    public static (Rect bounds, int trayLeft, bool autoHide) Taskbar()
+    public static (Rect bounds, int trayLeft, bool autoHide) Taskbar(IntPtr h = default)
     {
-        var h = FindWindow("Shell_TrayWnd", null);
+        if (h == IntPtr.Zero) h = TaskbarHandle();
         var data = new AppbarData { Size = Marshal.SizeOf<AppbarData>(), Window = h };
-        var ok = SHAppBarMessage(5, ref data) != UIntPtr.Zero;
+        var ok = h == TaskbarHandle() && SHAppBarMessage(5, ref data) != UIntPtr.Zero;
         var rect = data.Bounds;
         if (!ok) GetWindowRect(h, out rect);
         var tray = FindWindowEx(h, IntPtr.Zero, "TrayNotifyWnd", null);
-        var left = tray != IntPtr.Zero && GetWindowRect(tray, out var tr) ? tr.Left : rect.Right - 260;
+        var left = tray != IntPtr.Zero && GetWindowRect(tray, out var tr) ? tr.Left : rect.Right;
         var state = SHAppBarMessage(4, ref data).ToUInt64();
         return (rect, left, (state & 1) != 0);
     }

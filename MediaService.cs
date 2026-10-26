@@ -21,14 +21,18 @@ internal sealed class MediaService : IDisposable
     private sealed record SourceEntry(string Id, string AppId, GlobalSystemMediaTransportControlsSession Session);
     private readonly Dispatcher _dispatcher;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly SemaphoreSlim _seekGate = new(1);
     private List<SourceEntry> _entries = new();
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
     private GlobalSystemMediaTransportControlsSession? _session;
-    private int _generation, _sourceSequence;
+    private int _generation, _sourceSequence, _seekSequence;
     private bool _disposed, _refreshRunning, _refreshRequested;
     private TimeSpan _position;
     private DateTimeOffset _positionAt;
     private double _rate = 1;
+    private sealed record PendingSeek(double Target, DateTimeOffset Baseline, DateTimeOffset Requested, DateTimeOffset Deadline);
+    private PendingSeek? _pendingSeek;
+    public bool? LastSeekConfirmed { get; private set; }
     public double PositionSeconds => Math.Clamp((_position + (State.Playing ? TimeSpan.FromSeconds(Math.Max(0, (DateTimeOffset.UtcNow - _positionAt).TotalSeconds) * _rate) : TimeSpan.Zero)).TotalSeconds, 0, Math.Max(0, State.Duration));
     public MediaState State { get; private set; } = new();
     public IReadOnlyList<MediaSource> Sources { get; private set; } = Array.Empty<MediaSource>();
@@ -124,6 +128,7 @@ internal sealed class MediaService : IDisposable
         _session = session;
         _generation++;
         LastSeekSucceeded = null;
+        _pendingSeek = null; LastSeekConfirmed = null;
         State = new(); _position = TimeSpan.Zero; _positionAt = DateTimeOffset.UtcNow; _rate = 1;
         Changed?.Invoke();
         if (_session != null)
@@ -143,13 +148,25 @@ internal sealed class MediaService : IDisposable
         try
         {
             var timeline = _session.GetTimelineProperties();
+            State = State with { Duration = Math.Max(0, (timeline.EndTime - timeline.StartTime).TotalSeconds) };
+            if (_pendingSeek is { } pending)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var confirmed = ConfirmsSeek((timeline.Position - timeline.StartTime).TotalSeconds, timeline.LastUpdatedTime,
+                    pending.Target, pending.Baseline, pending.Requested, now, State.Playing ? _rate : 0);
+                if (!confirmed && now < pending.Deadline) return;
+                _pendingSeek = null; LastSeekConfirmed = confirmed;
+            }
             _position = timeline.Position - timeline.StartTime;
             _positionAt = timeline.LastUpdatedTime;
             if (_positionAt == default) _positionAt = DateTimeOffset.UtcNow;
-            State = State with { Duration = Math.Max(0, (timeline.EndTime - timeline.StartTime).TotalSeconds) };
         }
         catch (Exception ex) { AppSettings.Log(ex); }
     }
+    public void ReconcileSeek() { if (_pendingSeek is { } pending && DateTimeOffset.UtcNow >= pending.Deadline) { UpdateTimeline(); Changed?.Invoke(); } }
+    internal static bool ConfirmsSeek(double position, DateTimeOffset timestamp, double target, DateTimeOffset baseline, DateTimeOffset requested, DateTimeOffset now, double rate) =>
+        timestamp > baseline && timestamp >= requested.AddMilliseconds(-100) &&
+        Math.Abs(position + Math.Max(0, (now - timestamp).TotalSeconds) * rate - (target + Math.Max(0, (now - requested).TotalSeconds) * rate)) <= 2;
     private void UpdatePlayback()
     {
         if (_disposed || _session == null) return;
@@ -199,6 +216,7 @@ internal sealed class MediaService : IDisposable
                     catch (OperationCanceledException) when (_disposed) { break; }
                     catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
                     if (!IsCurrent(session, version)) continue;
+                    if (State.Title != properties.Title || State.Artist != properties.Artist) { _pendingSeek = null; LastSeekConfirmed = null; }
                     State = new(string.IsNullOrWhiteSpace(properties.Title) ? "Медиа" : properties.Title, properties.Artist, true, Artwork: image, Album: properties.AlbumTitle);
                     UpdatePlayback();
                 }
@@ -235,21 +253,34 @@ internal sealed class MediaService : IDisposable
         catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
     }
     public bool? LastSeekSucceeded { get; private set; }
-    public async Task SeekAsync(double seconds)
+    public async Task<bool> SeekAsync(double seconds)
     {
+        var request = ++_seekSequence;
         var session = _session;
-        if (session == null || !State.CanSeek) { LastSeekSucceeded = false; return; }
-        var generation = _generation;
+        if (_disposed || session == null || !State.CanSeek) { LastSeekSucceeded = false; return false; }
+        var title = State.Title; var artist = State.Artist;
+        bool Current() => !_disposed && request == _seekSequence && session == _session && State.Title == title && State.Artist == artist;
+        await _seekGate.WaitAsync();
         try
         {
+            if (!Current()) return false;
             var timeline = session.GetTimelineProperties();
             var position = timeline.StartTime + TimeSpan.FromSeconds(Math.Clamp(seconds, 0, State.Duration));
-            var succeeded = await session.TryChangePlaybackPositionAsync(position.Ticks);
-            if (!IsCurrent(session, generation)) return;
+            var requested = DateTimeOffset.UtcNow;
+            var succeeded = await session.TryChangePlaybackPositionAsync(position.Ticks).AsTask(_lifetime.Token);
+            if (!Current()) return false;
             LastSeekSucceeded = succeeded;
-            if (succeeded) { _position = position - timeline.StartTime; _positionAt = DateTimeOffset.UtcNow; Changed?.Invoke(); }
+            if (succeeded)
+            {
+                _pendingSeek = new((position - timeline.StartTime).TotalSeconds, timeline.LastUpdatedTime, requested, DateTimeOffset.UtcNow.AddSeconds(2));
+                LastSeekConfirmed = null;
+                _position = position - timeline.StartTime; _positionAt = DateTimeOffset.UtcNow;
+                UpdateTimeline(); Changed?.Invoke();
+            }
+            return succeeded;
         }
-        catch (Exception ex) { if (IsCurrent(session, generation)) LastSeekSucceeded = false; if (!_disposed) AppSettings.Log(ex); }
+        catch (Exception ex) { if (Current()) LastSeekSucceeded = false; if (!_disposed) AppSettings.Log(ex); return false; }
+        finally { _seekGate.Release(); }
     }
     private void Unsubscribe(GlobalSystemMediaTransportControlsSession session)
     {
