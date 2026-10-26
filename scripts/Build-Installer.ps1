@@ -1,10 +1,11 @@
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(\.\d+)?$')]
-    [string]$Version = '1.1.0',
+    [string]$Version,
     [string]$IsccPath
 )
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
+if (-not $Version) { $Version = ([xml](Get-Content (Join-Path $project 'QuietIsland.csproj') -Raw)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1 }
 $artifacts = Join-Path $project 'artifacts'
 $publish = Join-Path $artifacts "publish\$Version\win-x64"
 
@@ -39,6 +40,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
 $licenses = Join-Path $publish 'Licenses'
 New-Item -ItemType Directory -Path $licenses -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $project 'THIRD_PARTY_NOTICES.md') -Destination $publish -Force
+Copy-Item -LiteralPath (Join-Path $project 'LICENSE'),(Join-Path $project 'CHANGELOG.md') -Destination $publish -Force
 Copy-Item -Path (Join-Path $project 'installer\licenses\*') -Destination $licenses -Force
 
 # Include the exact runtime pack licenses selected by restore, not a different installed runtime.

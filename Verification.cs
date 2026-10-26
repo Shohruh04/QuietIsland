@@ -20,6 +20,18 @@ internal static class Verification
         checks["RightPlacementAvoidsAllButtons"] = right.HasValue && buttons.All(b => !b.IntersectsWith(right.Value));
         checks["UsesFullTaskbarHeight"] = left?.Height == bar.Height && left?.Top == bar.Top;
         checks["NoEmptyMarginAtLeftEdge"] = TaskbarLayout.Choose(bar, 1700, new[] { new Rect(700, 1056, 550, 24) }, 1, "left")?.Left == 0;
+        var leftAlignedButtons = new[] { new Rect(0, 1056, 550, 24) };
+        checks["LeftAlignedStartAndAppsRemainUncovered"] = new[] { "left", "center", "right", "custom" }.All(mode =>
+        {
+            var position = TaskbarLayout.Choose(bar, 1700, leftAlignedButtons, 1, mode, 480, 0);
+            return position.HasValue && !position.Value.IntersectsWith(leftAlignedButtons[0]) && position.Value.Left >= 550;
+        });
+        var scattered = new[] { new Rect(300, 1056, 100, 24), new Rect(1000, 1056, 100, 24) };
+        checks["CustomPositionAlwaysUsesSafeGap"] = new[] { 0d, .25, .5, .75, 1 }.All(fraction =>
+        {
+            var position = TaskbarLayout.Choose(bar, 1700, scattered, 1, "custom", 480, fraction);
+            return position.HasValue && scattered.All(button => !button.IntersectsWith(position.Value));
+        });
         var largeBar = new NativeWindow.Rect { Left = 0, Top = 2064, Right = 3840, Bottom = 2160 };
         var scaled = TaskbarLayout.Choose(largeBar, 3400, new[] { new Rect(1800, 2064, 800, 96) }, 2, "left");
         checks["ScaledTaskbarUsesPhysicalPixels"] = scaled?.Height == 96 && scaled?.Width == 960;

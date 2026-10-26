@@ -36,7 +36,12 @@ public partial class IslandWindow : Window
     private IntPtr _handle, _foreground;
     private bool _closing, _fullscreen, _locked, _suspended, _hasSpace, _hotkeyOpen, _hotkeyHide, _seeking, _syncSeek;
     private bool _seekPending;
+    private bool _moving, _moved;
+    private int _moveCursorX;
+    private double _moveLeft;
+    private int _trayLeft;
     private bool _shellUpdateQueued;
+    private bool _shellLayoutChanged;
     private int _taskbarCoverageRepairs;
     private int _seekGesture, _visibilityTransitions;
     private string _visibilityReason = "initializing", _seekTrack = "";
@@ -68,13 +73,13 @@ public partial class IslandWindow : Window
         _menu.Items.Add("Показать виджет                  Ctrl+Alt+I", null, (_, _) => OnUi(OpenPanel));
         _hiddenItem = AddToggle("Скрыть                                 Ctrl+Alt+D", ToggleHidden);
         var positions = new Forms.ToolStripMenuItem("Расположение");
-        var names = new[] { "Слева", "Справа", "Автоматически: больше свободного места" };
-        var values = new[] { "left", "right", "auto" };
-        _placementItems = new Forms.ToolStripMenuItem[3];
+        var names = new[] { "Слева", "По центру", "Справа", "Автоматически: больше свободного места", "Своя позиция…" };
+        var values = new[] { "left", "center", "right", "auto", "custom" };
+        _placementItems = new Forms.ToolStripMenuItem[values.Length];
         for (var i = 0; i < values.Length; i++)
         {
             var value = values[i];
-            _placementItems[i] = new Forms.ToolStripMenuItem(names[i], null, (_, _) => OnUi(() => { _settings.Placement = value; Save(); UpdatePlacement(); }));
+            _placementItems[i] = new Forms.ToolStripMenuItem(names[i], null, (_, _) => OnUi(() => { if (value == "custom") CustomizePosition(); else SetPosition(value); }));
             positions.DropDownItems.Add(_placementItems[i]);
         }
         _menu.Items.Add(positions);
@@ -179,6 +184,12 @@ public partial class IslandWindow : Window
         _startupItem = AddToggle("Запускать вместе с Windows", () => { AppSettings.SetStartup(!AppSettings.StartupEnabled); UpdateMenu(); });
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add("Открыть папку программы", null, (_, _) => Process.Start(new ProcessStartInfo("explorer.exe", AppContext.BaseDirectory) { UseShellExecute = true }));
+        var version = typeof(App).Assembly.GetName().Version;
+        var about = new Forms.ToolStripMenuItem("О программе");
+        about.DropDownItems.Add(new Forms.ToolStripMenuItem("QuietIsland " + version?.ToString(3)) { Enabled = false });
+        about.DropDownItems.Add("Релизы и обновления", null, (_, _) => Process.Start(new ProcessStartInfo("https://github.com/Shohruh04/QuietIsland/releases/latest") { UseShellExecute = true }));
+        about.DropDownItems.Add("Исходный код · MIT", null, (_, _) => Process.Start(new ProcessStartInfo("https://github.com/Shohruh04/QuietIsland") { UseShellExecute = true }));
+        _menu.Items.Add(about);
         _menu.Items.Add("Выход", null, (_, _) => OnUi(ExitApp));
         _tray = new Forms.NotifyIcon { Text = "Quiet Island · Ctrl+Alt+I", Icon = new System.Drawing.Icon(Path.Combine(AppContext.BaseDirectory, "Assets", "QuietIsland.ico"), 32, 32), ContextMenuStrip = _menu, Visible = true };
         _tray.DoubleClick += (_, _) => OnUi(OpenPanel);
@@ -242,16 +253,26 @@ public partial class IslandWindow : Window
     }
     private void SetWidth(int width) { _settings.WidthDip = Math.Clamp(width, 280, 1200); Save(); UpdatePlacement(); UpdateVisibility(); }
     private sealed record DialogOwner(IntPtr Handle) : Forms.IWin32Window;
-    private void CustomizeWidth()
+    private void CustomizeWidth() => CustomizeNumber("Ширина виджета", "Ширина (280–1200 DIP)", 280, 1200, Math.Clamp(_settings.WidthDip, 280, 1200), SetWidth);
+    private void CustomizePosition() => CustomizeNumber("Положение виджета", "Положение (0% слева — 100% справа)", 0, 100, (int)Math.Round(Math.Clamp(_settings.PositionFraction, 0, 1) * 100), value => SetPosition(value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    private void CustomizeNumber(string title, string description, int minimum, int maximum, int current, Action<int> accept)
     {
-        using var dialog = new Forms.Form { Text = UiText.T("Ширина виджета"), ClientSize = new System.Drawing.Size(300, 130),
+        using var dialog = new Forms.Form { Text = UiText.T(title), ClientSize = new System.Drawing.Size(300, 130),
             FormBorderStyle = Forms.FormBorderStyle.FixedDialog, StartPosition = Forms.FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false };
-        using var label = new Forms.Label { Text = UiText.T("Ширина (280–1200 DIP)"), AutoSize = true, Left = 16, Top = 14 };
-        using var value = new Forms.NumericUpDown { Minimum = 280, Maximum = 1200, Value = Math.Clamp(_settings.WidthDip, 280, 1200), Left = 16, Top = 40, Width = 268 };
+        using var label = new Forms.Label { Text = UiText.T(description), AutoSize = true, Left = 16, Top = 14 };
+        using var value = new Forms.NumericUpDown { Minimum = minimum, Maximum = maximum, Value = current, Left = 16, Top = 40, Width = 268 };
         using var apply = new Forms.Button { Text = UiText.T("Применить"), DialogResult = Forms.DialogResult.OK, Left = 108, Top = 86, Width = 86 };
         using var cancel = new Forms.Button { Text = UiText.T("Отмена"), DialogResult = Forms.DialogResult.Cancel, Left = 200, Top = 86, Width = 84 };
         dialog.Controls.AddRange(new Forms.Control[] { label, value, apply, cancel }); dialog.AcceptButton = apply; dialog.CancelButton = cancel;
-        if (dialog.ShowDialog(new DialogOwner(_handle)) == Forms.DialogResult.OK) SetWidth((int)value.Value);
+        if (dialog.ShowDialog(new DialogOwner(_handle)) == Forms.DialogResult.OK) accept((int)value.Value);
+    }
+    private void SetPosition(string position)
+    {
+        if (double.TryParse(position, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var percent) && double.IsFinite(percent))
+        { _settings.Placement = "custom"; _settings.PositionFraction = Math.Clamp(percent / 100, 0, 1); }
+        else if (position is "left" or "center" or "right" or "auto") _settings.Placement = position;
+        else return;
+        Save(); UpdatePlacement(); UpdateVisibility();
     }
     private void InitializeNative(object? sender, EventArgs args)
     {
@@ -261,8 +282,14 @@ public partial class IslandWindow : Window
         {
             if (_closing || _shellUpdateQueued || Dispatcher.HasShutdownStarted) return;
             _shellUpdateQueued = true;
-            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() => { _shellUpdateQueued = false; RefreshForeground(); }));
-        });
+            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() =>
+            {
+                _shellUpdateQueued = false;
+                if (_closing) return;
+                if (_shellLayoutChanged) { _shellLayoutChanged = false; _space.Refresh(true); }
+                RefreshForeground();
+            }));
+        }, () => _shellLayoutChanged = true);
         NativeWindow.SetPassive(_handle, false); // Only a verified empty taskbar gap is interactive.
         _hotkeyOpen = NativeWindow.RegisterHotKey(_handle, 1, 0x4003, 0x49);
         _hotkeyHide = NativeWindow.RegisterHotKey(_handle, 2, 0x4003, 0x44);
@@ -285,19 +312,23 @@ public partial class IslandWindow : Window
         _taskbarHandle = NativeWindow.TaskbarHandle(_settings.MonitorDevice);
         _scale = Math.Max(96, NativeWindow.GetDpiForWindow(_taskbarHandle)) / 96.0;
         var bar = NativeWindow.Taskbar(_taskbarHandle);
+        _trayLeft = bar.trayLeft;
         _barBounds = bar.bounds; _autoHide = bar.autoHide;
         _monitorBounds = NativeWindow.PrimaryMonitor(_taskbarHandle).Monitor;
-        var chosen = _space.Matches(_taskbarHandle, bar.bounds, bar.trayLeft) ? TaskbarLayout.Choose(bar.bounds, bar.trayLeft, _space.Buttons, _scale, _settings.Placement, _settings.WidthDip) : null;
+        var chosen = _space.Matches(_taskbarHandle, bar.bounds, bar.trayLeft) ? TaskbarLayout.Choose(bar.bounds, bar.trayLeft, _space.Buttons, _scale, _settings.Placement, _settings.WidthDip, _settings.PositionFraction) : null;
         _hasSpace = chosen.HasValue;
         if (!chosen.HasValue) return;
-        _placement = chosen.Value;
+        ApplyPlacement(chosen.Value);
+    }
+    private void ApplyPlacement(Rect chosen)
+    {
+        _placement = chosen;
         Width = _placement.Width / _scale; Height = _placement.Height / _scale;
         NativeWindow.PlaceWithoutFocus(_handle, _placement);
         var artSize = Math.Clamp(Height - 10, 24, 40);
         ArtBorder.Width = ArtBorder.Height = artSize;
         ArtworkClip.Rect = new Rect(0, 0, artSize - 2, artSize - 2);
         Previous.Visibility = Next.Visibility = Width >= 360 ? Visibility.Visible : Visibility.Collapsed;
-        NativeWindow.RaiseWithoutFocus(_handle);
     }
     private void Pulse(object? sender, EventArgs e)
     {
@@ -359,7 +390,7 @@ public partial class IslandWindow : Window
         _hiddenItem.Checked = _settings.Hidden; _startupItem.Checked = AppSettings.StartupEnabled;
         _onlineItem.Checked = _settings.OnlineLyrics; _lyricsItem.Checked = _settings.ShowLyrics;
         _volumeItem.Checked = _settings.VolumeAlerts; _fullscreenItem.Checked = _settings.HideInFullscreen;
-        var values = new[] { "left", "right", "auto" };
+        var values = new[] { "left", "center", "right", "auto", "custom" };
         for (var i = 0; i < values.Length; i++) _placementItems[i].Checked = _settings.Placement == values[i];
     }
     private void RefreshContent()
@@ -377,6 +408,34 @@ public partial class IslandWindow : Window
         LyricsButton.Opacity = _settings.ShowLyrics ? 1 : 0.55;
         RefreshDynamicContent(); UpdateClockState();
     }
+    private void MoveStart(object sender, MouseButtonEventArgs e)
+    {
+        if (!_hasSpace || e.OriginalSource is not DependencyObject element) return;
+        for (var node = element; node != null; node = node is Visual ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node))
+            if (node is System.Windows.Controls.Primitives.ButtonBase or System.Windows.Controls.Slider) return;
+        if (!NativeWindow.GetCursorPos(out var cursor) || !Shell.CaptureMouse()) return;
+        _moving = true; _moved = false; _moveCursorX = cursor.X; _moveLeft = _placement.Left; e.Handled = true;
+    }
+    private void MovePointer(object sender, MouseEventArgs e)
+    {
+        if (!_moving || e.LeftButton != MouseButtonState.Pressed || !NativeWindow.GetCursorPos(out var cursor)) return;
+        if (!_hasSpace || !_space.Matches(_taskbarHandle, _barBounds, _trayLeft))
+        { _moving = false; Shell.ReleaseMouseCapture(); _space.Refresh(true); return; }
+        var delta = cursor.X - _moveCursorX;
+        if (!_moved && Math.Abs(delta) < 4 * _scale) return;
+        _moved = true;
+        var end = Math.Min(_barBounds.Right, _trayLeft) - 8 * _scale;
+        var fraction = Math.Clamp((_moveLeft + delta - _barBounds.Left) / Math.Max(1, end - _barBounds.Left - Math.Clamp(_settings.WidthDip, 280, 1200) * _scale), 0, 1);
+        var chosen = TaskbarLayout.Choose(_barBounds, _trayLeft, _space.Buttons, _scale, "custom", _settings.WidthDip, fraction);
+        if (chosen.HasValue) { _settings.Placement = "custom"; _settings.PositionFraction = fraction; ApplyPlacement(chosen.Value); }
+        e.Handled = true;
+    }
+    private void MoveEnd(object sender, MouseButtonEventArgs e)
+    {
+        if (!_moving) return;
+        _moving = false; Shell.ReleaseMouseCapture(); if (_moved) Save(); e.Handled = true;
+    }
+    private void MoveCaptureLost(object sender, MouseEventArgs e) { if (_moving) { _moving = false; if (_moved && !_closing) Save(); } }
     private void RefreshDynamicContent()
     {
         if (_closing) return;
@@ -457,6 +516,7 @@ public partial class IslandWindow : Window
     public void HandleCommand(string command)
     {
         if (command == "--exit") ExitApp();
+        else if (command.StartsWith("--position=")) SetPosition(command[11..]);
         else if (command == "--toggle-hidden") ToggleHidden();
         else if (command == "--enable-startup") { AppSettings.SetStartup(true); UpdateMenu(); }
         else if (command == "--disable-startup") { AppSettings.SetStartup(false); UpdateMenu(); }
@@ -487,6 +547,7 @@ public partial class IslandWindow : Window
             NativeVisible = NativeWindow.IsWindowVisible(_handle), Opacity, Handle = _handle.ToInt64(), Left, Top, Width, Height,
             PhysicalBounds = new { nativeBounds.Left, nativeBounds.Top, nativeBounds.Right, nativeBounds.Bottom }, DpiScale = _scale,
             ActualMonitor = Forms.Screen.FromHandle(_handle).DeviceName,
+            PositionFraction = _settings.PositionFraction,
             CoveredByTaskbar = covering == _taskbarHandle, CoveringClass = NativeWindow.WindowClass(covering), ForegroundClass = NativeWindow.WindowClass(NativeWindow.GetForegroundWindow()),
             TaskbarCoverageRepairs = _taskbarCoverageRepairs,
             Fullscreen = _fullscreen, HasSpace = _hasSpace, Placement = _settings.Placement, _settings.MonitorDevice, _settings.Language, _settings.WidthDip,

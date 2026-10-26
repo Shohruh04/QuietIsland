@@ -20,6 +20,7 @@ internal sealed class AppSettings
     public string MonitorDevice { get; set; } = "";
     public string Language { get; set; } = "ru";
     public int WidthDip { get; set; } = 480;
+    public double PositionFraction { get; set; } = .5;
     public static string DataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietIsland");
     private static string SettingsPath => Path.Combine(DataDirectory, "settings.json");
     public static AppSettings Load()

@@ -31,14 +31,19 @@ internal static class NativeWindow
     {
         private readonly WinEventCallback _callback;
         private IntPtr _hook, _shellHook;
-        public ForegroundWatch(Action changed)
+        public ForegroundWatch(Action changed, Action? layoutChanged = null)
         {
             _callback = (_, eventId, window, _, _, _, _) =>
             {
                 if (eventId == 3) { changed(); return; }
                 var root = GetAncestor(window, 2);
                 var name = WindowClass(root);
-                if (window == GetDesktopWindow() || name is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") changed();
+                if (name is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+                {
+                    if (eventId == 0x8004) layoutChanged?.Invoke();
+                    changed();
+                }
+                else if (window == GetDesktopWindow()) changed();
             };
             _hook = SetWinEventHook(3, 3, IntPtr.Zero, _callback, 0, 0, 2); // EVENT_SYSTEM_FOREGROUND, skip this process.
             _shellHook = SetWinEventHook(0x8002, 0x8005, IntPtr.Zero, _callback, 0, 0, 2); // Shell show/hide/reorder/focus, including unchanged foreground HWND.

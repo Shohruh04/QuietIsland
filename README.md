@@ -3,6 +3,23 @@
 <p align="center"><img src="Assets/icon.png" alt="QuietIsland" width="120"></p>
 <p align="center"><strong>Музыка, обложки и текст песни прямо в панели задач Windows.</strong></p>
 
+<p align="center">
+  <a href="https://github.com/Shohruh04/QuietIsland/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Shohruh04/QuietIsland"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-green"></a>
+</p>
+
+**[⬇ Download for Windows x64 / Скачать для Windows](https://github.com/Shohruh04/QuietIsland/releases/latest)**
+
+QuietIsland is an open-source Windows taskbar music widget with album artwork, playback controls and synchronized lyrics. Choose the **Setup EXE** from the latest release; it includes .NET and a standard uninstaller. A portable ZIP is also available. The app supports English and Russian; select **Language / Язык** in the right-click menu. When no media session exists, the widget stays hidden.
+
+| Download | How to use |
+| --- | --- |
+| `QuietIsland-Setup-…-win-x64.exe` | Run the installer. Recommended for most users. |
+| `QuietIsland-…-win-x64-portable.zip` | Extract every file, then run `QuietIsland.exe`. |
+| `QuietIsland-…-SHA256SUMS.txt` | SHA-256 checksums for the release files. |
+
+Source code is available under the [MIT license](LICENSE). Report problems in [GitHub Issues](https://github.com/Shohruh04/QuietIsland/issues); include Windows version, player, monitor/DPI settings and steps to reproduce.
+
 QuietIsland — самостоятельный виджет для Windows 11 на C# / WPF. Он занимает свободный участок панели задач на всю её высоту. Интерфейс выполнен в тёмном стеклянном стиле: полупрозрачный фон, световые границы, небольшое скругление и чёткие векторные кнопки.
 
 Виджет не требует Windhawk и прав администратора. Не внедряется в Explorer, не заменяет панель задач и не открывает большую карточку поверх рабочей области. Название QuietIsland — самостоятельный проект, не связанный с Apple.
@@ -33,6 +50,7 @@ QuietIsland — самостоятельный виджет для Windows 11 н
 - Настраиваемая прозрачность фона: 0–80%. Текст, обложка и кнопки сохраняют читаемость.
 - Выбор монитора с его собственной панелью задач, включая второй монитор.
 - Ширина 280–1200 DIP: готовые размеры или ручной ввод. Высота следует панели задач, ширина ограничивается свободным местом.
+- Перетаскивание за обложку или название, центрирование и положение 0–100%. Левое и центральное выравнивание Пуска учитывается по реальным границам кнопок.
 - Восемь палитр из Dynamic Island for Windows: Obsidian, Graphite, Slate, Nord, Evergreen, Espresso, Plum и Porcelain. Выбор: правая кнопка → «Цветовая тема». По умолчанию — Obsidian.
 
 ## Как пользоваться
@@ -54,6 +72,8 @@ QuietIsland — самостоятельный виджет для Windows 11 н
 ## Размещение и поведение
 
 Программа читает границы кнопок taskbar через Windows UI Automation и выбирает свободный промежуток. Она не перемещает кнопки других приложений. Предпочтение «Слева» сохраняется между запусками; если слева нет подходящего места, используется следующий доступный промежуток.
+
+Для ручного перемещения удерживайте левую кнопку на обложке или названии и ведите вдоль панели. Виджет перескакивает между разрешёнными свободными промежутками, сохраняя место для Пуска, поиска и других приложений. Точная позиция доступна в **«Расположение» → «Своя позиция…»**. Кнопки воспроизведения и верхняя перемотка сохраняют свои обычные действия.
 
 Если свободного участка шириной хотя бы 280 DIP нет, виджет временно скрывается. На скрытой панели задач и в полноэкранном приложении он также может скрываться. Полноэкранное скрытие отключается в меню. Обычное развёрнутое окно не считается полноэкранным.
 
@@ -158,6 +178,8 @@ Get-Content "$env:LOCALAPPDATA\QuietIsland\status.json"
 .\publish\QuietIsland.exe --language=en
 .\publish\QuietIsland.exe --width=600
 .\publish\QuietIsland.exe --transparency=40
+.\publish\QuietIsland.exe --position=right
+.\publish\QuietIsland.exe --position=25
 .\publish\QuietIsland.exe --monitor=primary
 # Идентификатор второго дисплея зависит от конфигурации Windows:
 .\publish\QuietIsland.exe '--monitor=\\.\DISPLAY2'
@@ -178,6 +200,14 @@ Get-Content "$env:LOCALAPPDATA\QuietIsland\status.json"
 ```
 
 В дистрибутив включаются лицензии .NET Runtime, Windows Desktop Runtime, NAudio, CsWinRT, Windows SDK и уведомление об источнике цветовых палитр.
+
+## Версии и участие в проекте
+
+Текущая версия хранится в `QuietIsland.csproj` (`Version`); сборка установщика читает её автоматически. Меню **«О программе» / About** показывает версию и ссылки на релизы и исходники. История изменений — в [CHANGELOG.md](CHANGELOG.md).
+
+Для нового релиза обновите `Version` и changelog, зафиксируйте изменения, затем создайте и отправьте тег `vMAJOR.MINOR.PATCH`, соответствующий версии проекта. GitHub Actions соберёт Setup, portable ZIP и контрольные суммы и опубликует новый релиз. Существующие релизы не перезаписываются. Сборку без публикации можно запустить вручную во вкладке Actions. Локальная сборка 1.1.0 проверена; облачный workflow должен пройти свою первую сборку на GitHub.
+
+Pull request приветствуются. Для изменений поведения используйте встроенный `--self-test` и опишите ручную проверку конкретного плеера, taskbar и мониторов. Лицензии зависимостей и атрибуцию палитр нужно сохранять.
 
 ## Структура
 
