@@ -1,236 +1,72 @@
 # QuietIsland
 
-<p align="center"><img src="Assets/icon.png" alt="QuietIsland" width="120"></p>
-<p align="center"><strong>Музыка, обложки и текст песни прямо в панели задач Windows.</strong></p>
+<p align="center"><img src="Assets/icon.png" alt="QuietIsland" width="96"></p>
+<p align="center"><strong>Music, album artwork, and lyrics in your Windows taskbar.</strong></p>
 
 <p align="center">
   <a href="https://github.com/Shohruh04/QuietIsland/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Shohruh04/QuietIsland"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
-**[⬇ Download for Windows x64 / Скачать для Windows](https://github.com/Shohruh04/QuietIsland/releases/latest)**
+## Download
 
-QuietIsland is an open-source Windows taskbar music widget with album artwork, playback controls and synchronized lyrics. Choose the **Setup EXE** from the latest release; it includes .NET and a standard uninstaller. A portable ZIP is also available. The app supports English and Russian; select **Language / Язык** in the right-click menu. When no media session exists, the widget stays hidden.
+**[Download the latest Windows x64 release](https://github.com/Shohruh04/QuietIsland/releases/latest)**
 
-| Download | How to use |
+- **Setup EXE:** recommended; includes .NET and an uninstaller. No administrator rights required.
+- **Portable ZIP:** extract all files, then run `QuietIsland.exe`.
+- SHA-256 checksums are included with each release.
+
+Designed for Windows 11 x64. Uninstall through **Settings → Apps → Installed apps** or `unins000.exe`. Settings and lyrics cache are preserved.
+
+## Features
+
+- Album artwork, playback controls, click/drag seeking, and mouse-wheel volume.
+- Synchronized lyrics from LRCLIB, local `.lrc` files, version selection, and timing adjustment.
+- Drag placement, monitor selection, custom width, transparency, and eight color themes.
+- Safe placement around Start and app buttons, including a left-aligned taskbar.
+- English/Russian UI, optional startup, and a focus timer.
+- Automatically hides when no media session exists; paused tracks remain visible.
+
+QuietIsland is a standalone C#/WPF app. It does not require Windhawk or inject into Explorer. Controls depend on what your player exposes through Windows Media Controls.
+
+## Controls
+
+| Action | Control |
 | --- | --- |
-| `QuietIsland-Setup-…-win-x64.exe` | Run the installer. Recommended for most users. |
-| `QuietIsland-…-win-x64-portable.zip` | Extract every file, then run `QuietIsland.exe`. |
-| `QuietIsland-…-SHA256SUMS.txt` | SHA-256 checksums for the release files. |
+| Settings | Right-click the widget or tray icon |
+| Move | Drag the artwork or song title |
+| Seek | Click or drag the top progress bar |
+| Volume | Mouse wheel over the widget |
+| Lyrics / artist | Three-line button |
+| Show | `Ctrl+Alt+I` or double-click the tray icon |
+| Toggle visibility | `Ctrl+Alt+D` |
 
-Source code is available under the [MIT license](LICENSE). Report problems in [GitHub Issues](https://github.com/Shohruh04/QuietIsland/issues); include Windows version, player, monitor/DPI settings and steps to reproduce.
+Use the right-click menu to change language, monitor, size, position, theme, transparency, and startup. Secondary monitors need a Windows taskbar enabled. If no safe space is available, the widget hides.
 
-QuietIsland — самостоятельный виджет для Windows 11 на C# / WPF. Он занимает свободный участок панели задач на всю её высоту. Интерфейс выполнен в тёмном стеклянном стиле: полупрозрачный фон, световые границы, небольшое скругление и чёткие векторные кнопки.
+## Build
 
-Виджет не требует Windhawk и прав администратора. Не внедряется в Explorer, не заменяет панель задач и не открывает большую карточку поверх рабочей области. Название QuietIsland — самостоятельный проект, не связанный с Apple.
-
-## Готовая программа
-
-Скачайте [QuietIsland Setup для Windows x64](https://github.com/Shohruh04/QuietIsland/releases/latest). Установщик содержит .NET Desktop Runtime: устанавливать .NET отдельно не требуется. В мастере доступны русский и английский языки, ярлык и автозапуск.
-
-Установка выполняется для текущего пользователя в `%LocalAppData%\Programs\QuietIsland`. После установки программа появляется в **Параметры Windows → Приложения → Установленные приложения**. Там же можно её удалить; также доступен `unins000.exe` в папке программы. При удалении закрывается виджет, убираются файлы программы, ярлыки и принадлежащая этой установке запись автозапуска. Настройки и кеш в `%LocalAppData%\QuietIsland` сохраняются для переустановки.
-
-В том же релизе доступен portable ZIP. Распакуйте его полностью и запустите `QuietIsland.exe`; файлы рядом с EXE нужны для работы. Контрольные суммы SHA-256 приложены к релизу.
-
-## Возможности
-
-- Обложка, название и исполнитель из системной медиасессии Windows.
-- Предыдущий трек, воспроизведение/пауза и следующий трек.
-- Выбор источника музыки, если одновременно открыто несколько плееров или браузеров.
-- Перемотка нажатием или перетаскиванием верхней полосы, без всплывающей подсказки при наведении. Работает также при отпускании мыши за пределами полосы. Доступна, если текущий плеер разрешает её через Windows Media Controls.
-- Изменение громкости колёсиком мыши над виджетом.
-- Текущая строка синхронизированного текста вместо исполнителя; кнопка текста переключает отображение.
-- Онлайн-поиск через LRCLIB и импорт локальных файлов `.lrc`.
-- Выбор подходящей версии текста и ручная поправка синхронизации шагом 0,5 секунды.
-- Таймер фокусировки на 5, 25 или 50 минут, пауза и продолжение.
-- Выбор расположения: слева, справа или автоматически в самом широком свободном участке.
-- Высота равна высоте панели задач; скругление — 6 DIP.
-- Автозапуск при входе в Windows, отключаемый из меню.
-- Русский и английский интерфейс с переключением без перезапуска, собственная иконка приложения и трея.
-- Настраиваемая прозрачность фона: 0–80%. Текст, обложка и кнопки сохраняют читаемость.
-- Выбор монитора с его собственной панелью задач, включая второй монитор.
-- Ширина 280–1200 DIP: готовые размеры или ручной ввод. Высота следует панели задач, ширина ограничивается свободным местом.
-- Перетаскивание за обложку или название, центрирование и положение 0–100%. Левое и центральное выравнивание Пуска учитывается по реальным границам кнопок.
-- Восемь палитр из Dynamic Island for Windows: Obsidian, Graphite, Slate, Nord, Evergreen, Espresso, Plum и Porcelain. Выбор: правая кнопка → «Цветовая тема». По умолчанию — Obsidian.
-
-## Как пользоваться
-
-| Действие | Управление |
-| --- | --- |
-| Показать виджет | `Ctrl+Alt+I` или двойной щелчок по значку в трее |
-| Скрыть / показать | `Ctrl+Alt+D` |
-| Открыть настройки | Правая кнопка по виджету или значку в трее |
-| Воспроизведение | Кнопки справа внутри виджета |
-| Перемотка | Верхняя полоса прогресса |
-| Громкость | Колёсико мыши над виджетом |
-| Текст / исполнитель | Кнопка с тремя строками |
-
-Если клавиатурное сочетание занято другим приложением, используйте меню трея.
-
-В Windows значок приложения может оказаться в области скрытых значков. Это не мешает работе самого виджета. При желании переместите значок в видимую часть трея штатными средствами Windows.
-
-## Размещение и поведение
-
-Программа читает границы кнопок taskbar через Windows UI Automation и выбирает свободный промежуток. Она не перемещает кнопки других приложений. Предпочтение «Слева» сохраняется между запусками; если слева нет подходящего места, используется следующий доступный промежуток.
-
-Для ручного перемещения удерживайте левую кнопку на обложке или названии и ведите вдоль панели. Виджет перескакивает между разрешёнными свободными промежутками, сохраняя место для Пуска, поиска и других приложений. Точная позиция доступна в **«Расположение» → «Своя позиция…»**. Кнопки воспроизведения и верхняя перемотка сохраняют свои обычные действия.
-
-Если свободного участка шириной хотя бы 280 DIP нет, виджет временно скрывается. На скрытой панели задач и в полноэкранном приложении он также может скрываться. Полноэкранное скрытие отключается в меню. Обычное развёрнутое окно не считается полноэкранным.
-
-Когда медиасессии нет, виджет полностью скрыт: пустая карточка с приглашением включить музыку не отображается. При появлении песни он возвращается автоматически; пауза текущей песни сохраняет карточку.
-
-Наведение курсора больше не скрывает виджет. Кнопки принимают нажатия, но окно не перехватывает клавиатурный фокус и не появляется в Alt+Tab.
-
-В меню доступны **«Монитор»**, **«Размер» → «Своя ширина…»**, **«Прозрачность фона»** и **«Язык»**. На втором мониторе должна быть включена штатная панель задач Windows. Если выбранный дисплей отключён или его taskbar недоступна, используется основная панель. Отрицательные координаты и масштаб DPI учитываются. На текущем ПК проверены оба монитора при масштабе 100%; разные масштабы DPI и физическое отключение дисплея отдельно не проверялись. Нестандартные сторонние оболочки не поддерживаются.
-
-При временном сбое UI Automation последняя проверенная геометрия сохраняется не более короткого периода повторной проверки (около 2 секунд), только пока HWND, границы панели и положение трея не изменились. Фокус отслеживается событиями Windows; ожидать очередного полусекундного опроса для поднятия виджета больше не требуется.
-
-Повторное нажатие на уже активную панель задач отслеживается по событиям её фокуса и порядка окон. Если именно taskbar перекрывает виджет, программа восстанавливает порядок окон без перехвата фокуса. Контекстные меню и другие приложения не считаются таким перекрытием.
-
-При смене песни название и обложка обновляются вместе. Если плеер присылает метаданные и картинку раздельно, виджет ждёт до 600 мс полного набора; следующий сигнал обновления завершает ожидание раньше. Краткое пересоздание медиасессии больше не очищает карточку. Отсутствующая картинка сохраняется из предыдущего обновления только для той же песни, исполнителя и альбома; обложка другой песни не подставляется. Подтверждённое закрытие плеера и ошибка загрузки завершают ожидание.
-
-После принятой перемотки устаревший снимок времени от плеера больше не возвращает ползунок назад. Программа ждёт подтверждения нового времени. Если его нет, примерно через 2 секунды повторно читает фактическое состояние плеера.
-
-## Тексты песен и приватность
-
-LRCLIB получает название песни, имя исполнителя, альбом и длительность. Ключ API не нужен. Онлайн-поиск можно отключить пунктом **«Онлайн-текст · LRCLIB»**. Остальные функции продолжают работать без интернета.
-
-- Запросы выполняются при смене песни, с задержкой 500 мс и отменой устаревших запросов.
-- Одновременно выполняется не более одного запроса. Заголовок `Retry-After` учитывается.
-- Найденные тексты кешируются локально на 30 дней; сохраняется максимум 100 файлов.
-- Доступность текста и точность совпадения зависят от LRCLIB и метаданных плеера.
-- Если точное совпадение не найдено, выполняется поиск вариантов. Версия с другой длительностью не включается автоматически: её можно выбрать в меню.
-- При ошибке сервиса выберите **«Обновить текст песни»** позже или загрузите локальный `.lrc`.
-- Текст без временных меток не выдаётся за синхронизированный. Для отображения текущей строки нужны временные метки.
-
-Никакой записи звука, мониторинга микрофона, истории буфера обмена или аналитики здесь нет. Настройки, кеш и диагностические файлы хранятся в `%LocalAppData%\QuietIsland`.
-
-## Установка из исходников
-
-Требуются Windows 11 x64 и .NET 10 SDK. Для запуска готовой сборки нужен **.NET 10 Desktop Runtime x64**.
+Requires **.NET 10 SDK** on Windows. The source install script builds the app, creates a shortcut, and enables startup:
 
 ```powershell
 git clone https://github.com/Shohruh04/QuietIsland.git
 cd QuietIsland
-& .\scripts\Install.ps1
+.\scripts\Install.ps1
 ```
 
-Скрипт собирает приложение, копирует его в `%LocalAppData%\Programs\QuietIsland`, создаёт ярлык на рабочем столе и включает автозапуск для текущего пользователя. Первый build загружает необходимые NuGet-пакеты. Никаких изменений в системных файлах Windows не выполняется.
-
-Если политика вашей организации запрещает запуск скриптов, соберите приложение вручную:
+To build the self-contained installer and portable ZIP, also install **Inno Setup 6.3+ or 7**, then run:
 
 ```powershell
-dotnet publish QuietIsland.csproj -c Release -r win-x64 --self-contained false -o publish
-.\publish\QuietIsland.exe --enable-startup
+.\scripts\Build-Installer.ps1
 ```
 
-Не переносите каталог приложения после включения автозапуска: запись содержит путь к `.exe`. После переноса отключите и снова включите запуск вместе с Windows.
+Output is written to `artifacts/`. The version comes from `QuietIsland.csproj`. Update it and [CHANGELOG.md](CHANGELOG.md), then push a matching `vX.Y.Z` tag to build and publish through GitHub Actions.
 
-## Производительность
+## Privacy and contributing
 
-- Нативный WPF-интерфейс; без Electron, браузерного движка и постоянного цикла перерисовки.
-- Медиа и громкость обновляются по событиям Windows.
-- Обложка декодируется до 128 пикселей и меняется при смене трека.
-- Позиция песни вычисляется локально между событиями медиасессии. Воспроизведение обновляет только прогресс и текущую строку; название, обложка и кнопки обновляются по событиям. На паузе без активного таймера, перемотки и уведомлений секундный таймер остановлен.
-- Проверка видимости выполняется два раза в секунду и использует кеш геометрии: частый цикл не отправляет синхронные сообщения Explorer. Полное чтение кнопок панели задач — раз в 30 секунд и при появлении нового активного окна, не чаще раза в 5 секунд.
-- UI Automation выполняется в фоне, без блокировки интерфейса.
-- Запросы метаданных объединяются: одновременно выполняется только один запрос с обработкой обложки. Чтение и декодирование изображения выполняются в рабочем потоке.
-- Хеш последней обложки позволяет повторно использовать уже декодированное изображение при одинаковых байтах, сохраняя поддержку изменения картинки у той же песни.
-- При блокировке сеанса и переходе в сон таймеры останавливаются.
-- Нет непрерывного размытия снимков экрана, спектроанализатора или анимации в простое.
-- Для небольшого виджета используется программный рендеринг WPF, чтобы не загружать тяжёлый графический конвейер ради поверхности 480 × 48.
+Online lyrics send the track title, artist, album, and duration to LRCLIB. You can disable this in the menu. Settings, cache, and diagnostics stay in `%LocalAppData%\QuietIsland`. No audio recording or analytics.
 
-В локальном замере после прогрева, за 30 секунд на паузе: около 0,04% общей загрузки CPU на 16 логических процессорах, рабочий набор около 142 МБ и private commit около 55 МБ. Счётчики GPU самого процесса показывали 0%; композиция рабочего стола учитывается Windows отдельно. При запуске и смене треков нагрузка выше. Результат зависит от конфигурации и состояния плеера.
+[Issues](https://github.com/Shohruh04/QuietIsland/issues) and pull requests are welcome. Include your Windows version, player, monitor/DPI setup, and reproduction steps. Close the running app before using `QuietIsland.exe --self-test`.
 
-Повторить измерение CPU, памяти и доступных счётчиков GPU:
+## License and credits
 
-```powershell
-& .\scripts\Measure-Performance.ps1 -Seconds 30 -WarmupSeconds 5
-```
-
-Скрипт различает отсутствие GPU-счётчиков и измеренное нулевое значение, а также выводит пиковую загрузку самого занятого GPU-движка системы. Он не меняет настройки Windows.
-
-Стеклянное оформление создано градиентами, прозрачностью и тонкими границами. Это визуальная интерпретация Liquid Glass; она не использует Apple API и не выполняет физическое преломление фона.
-
-## Проверка
-
-После закрытия обычного экземпляра:
-
-```powershell
-.\publish\QuietIsland.exe --self-test
-Get-Content "$env:LOCALAPPDATA\QuietIsland\verification.json"
-```
-
-Проверяются свободные промежутки taskbar, коллизии с кнопками, полная высота, отрицательные координаты монитора, полноэкранные границы, отсутствие захвата фокуса, таймер и парсер LRC.
-
-Для работающего экземпляра:
-
-```powershell
-.\publish\QuietIsland.exe --status
-Get-Content "$env:LOCALAPPDATA\QuietIsland\status.json"
-```
-
-Файл статуса содержит текущие метаданные песни и предназначен для локальной диагностики. Он не добавляется в Git. Успешная сборка и автоматические проверки не заменяют проверку конкретного плеера, мониторов и системной конфигурации.
-
-Настройки также можно менять командами установленного экземпляра:
-
-```powershell
-.\publish\QuietIsland.exe --language=en
-.\publish\QuietIsland.exe --width=600
-.\publish\QuietIsland.exe --transparency=40
-.\publish\QuietIsland.exe --position=right
-.\publish\QuietIsland.exe --position=25
-.\publish\QuietIsland.exe --monitor=primary
-# Идентификатор второго дисплея зависит от конфигурации Windows:
-.\publish\QuietIsland.exe '--monitor=\\.\DISPLAY2'
-```
-
-## Автозапуск и удаление
-
-Используется только значение `QuietIsland` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Его можно включить или выключить в меню программы.
-
-Версия из Setup удаляется штатным деинсталлятором через приложения Windows или `unins000.exe`. Для portable или установки старым скриптом: отключите **«Запускать вместе с Windows»**, выберите **«Выход»**, затем удалите каталог программы и ярлык. `%LocalAppData%\QuietIsland` удаляйте отдельно, только если больше не нужны настройки и кеш.
-
-## Сборка установщика
-
-Требуются .NET 10 SDK и Inno Setup 6.3+ / 7. Скрипт создаёт самодостаточную x64-сборку, EXE-установщик, portable ZIP и SHA-256 в игнорируемой папке `artifacts`:
-
-```powershell
-& .\scripts\Build-Installer.ps1 -Version 1.1.0 -IsccPath 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-```
-
-В дистрибутив включаются лицензии .NET Runtime, Windows Desktop Runtime, NAudio, CsWinRT, Windows SDK и уведомление об источнике цветовых палитр.
-
-## Версии и участие в проекте
-
-Текущая версия хранится в `QuietIsland.csproj` (`Version`); сборка установщика читает её автоматически. Меню **«О программе» / About** показывает версию и ссылки на релизы и исходники. История изменений — в [CHANGELOG.md](CHANGELOG.md).
-
-Для нового релиза обновите `Version` и changelog, зафиксируйте изменения, затем создайте и отправьте тег `vMAJOR.MINOR.PATCH`, соответствующий версии проекта. GitHub Actions соберёт Setup, portable ZIP и контрольные суммы и опубликует новый релиз. Существующие релизы не перезаписываются. Сборку без публикации можно запустить вручную во вкладке Actions. Локальная сборка 1.1.0 проверена; облачный workflow должен пройти свою первую сборку на GitHub.
-
-Pull request приветствуются. Для изменений поведения используйте встроенный `--self-test` и опишите ручную проверку конкретного плеера, taskbar и мониторов. Лицензии зависимостей и атрибуцию палитр нужно сохранять.
-
-## Структура
-
-| Файл | Назначение |
-| --- | --- |
-| `IslandWindow.xaml` | Виджет, кнопки и перемотка |
-| `IslandWindow.xaml.cs` | Поведение, меню, события и видимость |
-| `MediaService.cs` | Системные медиасессии, обложки, воспроизведение и перемотка |
-| `AudioService.cs` | Громкость и смена аудиоустройства |
-| `ThemePalette.cs` | Палитры, контраст текста и стеклянные границы |
-| `UiText.cs` | Переключение русского и английского интерфейса |
-| `LyricsService.cs` | LRCLIB, кеш, LRC и синхронизация строк |
-| `TaskbarSpace.cs` / `TaskbarLayout.cs` | Чтение кнопок и поиск свободного промежутка |
-| `NativeWindow.cs` | Win32: фокус, taskbar и полноэкранный режим |
-| `App.xaml.cs` | Жизненный цикл, один экземпляр и локальные команды |
-| `scripts/Create-Icon.ps1` | Воспроизводимая генерация многомасштабной иконки |
-| `scripts/Build-Installer.ps1` / `installer/QuietIsland.iss` | Самодостаточный Setup и деинсталлятор |
-| `scripts/Measure-Performance.ps1` | Измерение CPU, памяти и GPU |
-
-## Источники и ориентиры
-
-- [Dynamic Island for Windows от devcode90](https://github.com/devcode90/Dynamic-Island-for-Windows) — ориентир компоновки и источник восьми цветовых палитр; палитры адаптированы под WPF. Атрибуция и лицензия MIT — в [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-- [Apple: Live Activities](https://developer.apple.com/design/human-interface-guidelines/live-activities) и [Materials](https://developer.apple.com/design/human-interface-guidelines/materials) — визуальные принципы.
-- [Microsoft: Window Features](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features) и [Windows media sessions](https://devblogs.microsoft.com/oldnewthing/20231108-00/?p=108980) — системная интеграция.
-- [LRCLIB API](https://lrclib.net/docs) — поиск текста песни.
-- [NAudio](https://github.com/naudio/NAudio) — работа с Core Audio.
+[MIT](LICENSE). Layout inspired by [Dynamic Island for Windows](https://github.com/devcode90/Dynamic-Island-for-Windows), with adapted color palettes. Built with WPF, Windows Media Controls, [NAudio](https://github.com/naudio/NAudio), and [LRCLIB](https://lrclib.net/docs). See [third-party notices](THIRD_PARTY_NOTICES.md).
