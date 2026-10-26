@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows.Automation;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace QuietIsland;
 
@@ -15,11 +16,13 @@ internal sealed class TaskbarSpace
     public double? OccupiedRight { get; private set; }
     public IReadOnlyList<System.Windows.Rect> Buttons { get; private set; } = Array.Empty<System.Windows.Rect>();
     public bool Valid { get; private set; }
+    public double LastScanMilliseconds { get; private set; }
     public event Action? Changed;
     public async void Refresh(bool force = false)
     {
-        if (_busy || (!force && DateTimeOffset.UtcNow - _checked < TimeSpan.FromSeconds(5))) return;
+        if (_busy || DateTimeOffset.UtcNow - _checked < (force ? TimeSpan.FromMilliseconds(500) : TimeSpan.FromSeconds(5))) return;
         _busy = true; _checked = DateTimeOffset.UtcNow;
+        var started = Stopwatch.GetTimestamp();
         try
         {
             var taskbar = NativeWindow.Taskbar();
@@ -50,6 +53,6 @@ internal sealed class TaskbarSpace
             OccupiedRight = Valid ? Buttons.Max(r => r.Right) : null;
         }
         catch { Valid = false; OccupiedRight = null; Buttons = Array.Empty<System.Windows.Rect>(); }
-        finally { _busy = false; Changed?.Invoke(); }
+        finally { LastScanMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds; _busy = false; Changed?.Invoke(); }
     }
 }

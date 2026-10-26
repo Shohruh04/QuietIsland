@@ -8,6 +8,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Collections.Generic;
 using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 
@@ -21,6 +22,7 @@ public partial class IslandWindow : Window
     private readonly LyricsService _lyrics = new();
     private readonly TaskbarSpace _space = new();
     private readonly FocusTimer _focus = new();
+    private readonly HashSet<IntPtr> _seenWindows = new();
     private readonly DispatcherTimer _pulse, _clock;
     private readonly Forms.NotifyIcon _tray;
     private readonly Forms.ContextMenuStrip _menu = new();
@@ -34,6 +36,10 @@ public partial class IslandWindow : Window
     private int _ticks;
     private Rect _placement;
     private double _scale = 1;
+    private NativeWindow.Rect _barBounds, _monitorBounds;
+    private bool _autoHide;
+    private IntPtr _taskbarHandle;
+    private double _longestPulseMs;
     private static readonly Geometry PlayGeometry = Geometry.Parse("M 0,0 L 10,6 L 0,12 Z");
     private static readonly Geometry PauseGeometry = Geometry.Parse("M 0,0 L 3.5,0 L 3.5,12 L 0,12 Z M 7,0 L 10.5,0 L 10.5,12 L 7,12 Z");
     internal IntPtr Handle => _handle;
@@ -41,6 +47,7 @@ public partial class IslandWindow : Window
     public IslandWindow()
     {
         InitializeComponent();
+        ApplyTheme();
         _media = new MediaService(Dispatcher);
         _audio = new AudioService(Dispatcher);
         _media.Changed += () => { _lyrics.Update(_media.State, _settings.OnlineLyrics); RefreshContent(); };
@@ -60,11 +67,50 @@ public partial class IslandWindow : Window
             positions.DropDownItems.Add(_placementItems[i]);
         }
         _menu.Items.Add(positions);
+        var themes = new Forms.ToolStripMenuItem("Цветовая тема");
+        foreach (var theme in ThemePalette.All)
+        {
+            var selected = theme;
+            themes.DropDownItems.Add(new Forms.ToolStripMenuItem(theme.Name, null, (_, _) => OnUi(() => { _settings.Theme = selected.Id; Save(); ApplyTheme(); })) { Tag = theme.Id });
+        }
+        themes.DropDownOpening += (_, _) => { foreach (Forms.ToolStripMenuItem item in themes.DropDownItems) item.Checked = (string?)item.Tag == _settings.Theme; };
+        _menu.Items.Add(themes);
+        var sources = new Forms.ToolStripMenuItem("Источник музыки");
+        sources.DropDownOpening += (_, _) =>
+        {
+            _media.RefreshSources(); sources.DropDownItems.Clear();
+            var automatic = new Forms.ToolStripMenuItem("Автоматически", null, (_, _) => OnUi(() => _media.SelectSource(null))) { Checked = _media.SelectedSourceId == null };
+            sources.DropDownItems.Add(automatic);
+            foreach (var source in _media.Sources)
+            {
+                var id = source.Id;
+                sources.DropDownItems.Add(new Forms.ToolStripMenuItem(source.Name, null, (_, _) => OnUi(() => _media.SelectSource(id))) { Checked = source.IsSelected });
+            }
+        };
+        _menu.Items.Add(sources);
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _lyricsItem = AddToggle("Показывать строку песни", () => { _settings.ShowLyrics = !_settings.ShowLyrics; Save(); RefreshContent(); });
         _onlineItem = AddToggle("Онлайн-текст · LRCLIB", () => { _settings.OnlineLyrics = !_settings.OnlineLyrics; Save(); _lyrics.Update(_media.State, _settings.OnlineLyrics); RefreshContent(); });
         _onlineItem.ToolTipText = "Для поиска в LRCLIB передаются название, исполнитель, альбом и длительность песни.";
         _menu.Items.Add("Обновить текст песни", null, (_, _) => OnUi(() => _lyrics.Retry(_media.State, _settings.OnlineLyrics)));
+        var lyricVersions = new Forms.ToolStripMenuItem("Выбрать версию текста");
+        lyricVersions.DropDownOpening += (_, _) =>
+        {
+            lyricVersions.DropDownItems.Clear();
+            for (var i = 0; i < _lyrics.Candidates.Count; i++)
+            {
+                var index = i; var candidate = _lyrics.Candidates[i];
+                lyricVersions.DropDownItems.Add(candidate.Artist + " — " + candidate.Title + " (" + TimeSpan.FromSeconds(candidate.Duration).ToString(@"m\:ss") + ")",
+                    null, (_, _) => OnUi(() => { _lyrics.SelectCandidate(index); _settings.ShowLyrics = true; Save(); RefreshContent(); }));
+            }
+            if (lyricVersions.DropDownItems.Count == 0) lyricVersions.DropDownItems.Add(new Forms.ToolStripMenuItem("Нет вариантов: обновите текст песни") { Enabled = false });
+        };
+        _menu.Items.Add(lyricVersions);
+        var syncMenu = new Forms.ToolStripMenuItem("Синхронизация текста");
+        syncMenu.DropDownItems.Add("Показать строку раньше на 0,5 с", null, (_, _) => OnUi(() => { _settings.LyricsOffsetMs = Math.Clamp(_settings.LyricsOffsetMs + 500, -30000, 30000); Save(); RefreshContent(); }));
+        syncMenu.DropDownItems.Add("Показать строку позже на 0,5 с", null, (_, _) => OnUi(() => { _settings.LyricsOffsetMs = Math.Clamp(_settings.LyricsOffsetMs - 500, -30000, 30000); Save(); RefreshContent(); }));
+        syncMenu.DropDownItems.Add("Сбросить сдвиг", null, (_, _) => OnUi(() => { _settings.LyricsOffsetMs = 0; Save(); RefreshContent(); }));
+        _menu.Items.Add(syncMenu);
         _menu.Items.Add("Загрузить локальный файл .lrc…", null, (_, _) => OnUi(ImportLyrics));
         _volumeItem = AddToggle("Показывать изменение громкости", () => { _settings.VolumeAlerts = !_settings.VolumeAlerts; Save(); });
         _fullscreenItem = AddToggle("Скрывать в полноэкранном режиме", () => { _settings.HideInFullscreen = !_settings.HideInFullscreen; Save(); UpdateVisibility(); });
@@ -106,6 +152,11 @@ public partial class IslandWindow : Window
         var item = new Forms.ToolStripMenuItem(text, null, (_, _) => OnUi(action));
         _menu.Items.Add(item); return item;
     }
+    private void ApplyTheme()
+    {
+        var palette = Array.Find(ThemePalette.All, p => p.Id == _settings.Theme) ?? ThemePalette.All[0];
+        palette.Apply(this, Shell);
+    }
     private void InitializeNative(object? sender, EventArgs args)
     {
         _handle = new WindowInteropHelper(this).Handle;
@@ -121,7 +172,8 @@ public partial class IslandWindow : Window
     {
         if (msg == NativeWindow.MouseActivate) { handled = true; return new IntPtr(3); }
         if (msg == NativeWindow.HotkeyMessage) { handled = true; if (w.ToInt32() == 1) OpenPanel(); else ToggleHidden(); }
-        if (msg is 0x007E or 0x02E0 or 0x001A) OnUi(() => { _hasSpace = false; UpdateVisibility(); _space.Refresh(true); });
+        if (msg is 0x007E or 0x02E0) OnUi(() => { _hasSpace = false; UpdateVisibility(); _space.Refresh(true); });
+        if (msg == 0x001A) OnUi(() => _space.Refresh());
         return IntPtr.Zero;
     }
     private void UpdatePlacement()
@@ -129,6 +181,9 @@ public partial class IslandWindow : Window
         if (_source?.CompositionTarget == null) return;
         _scale = _source.CompositionTarget.TransformToDevice.M11;
         var bar = NativeWindow.Taskbar();
+        _barBounds = bar.bounds; _autoHide = bar.autoHide;
+        _monitorBounds = NativeWindow.PrimaryMonitor().Monitor;
+        _taskbarHandle = NativeWindow.TaskbarHandle();
         var chosen = _space.Valid ? TaskbarLayout.Choose(bar.bounds, bar.trayLeft, _space.Buttons, _scale, _settings.Placement) : null;
         _hasSpace = chosen.HasValue;
         if (!chosen.HasValue) return;
@@ -144,23 +199,24 @@ public partial class IslandWindow : Window
     private void Pulse(object? sender, EventArgs e)
     {
         if (_closing || _settings.Hidden) return;
+        var started = Stopwatch.GetTimestamp();
         var foreground = NativeWindow.GetForegroundWindow();
         if (foreground != _foreground)
         {
             _foreground = foreground;
-            _space.Refresh();
+            if (_seenWindows.Count > 128) _seenWindows.Clear();
+            if (_seenWindows.Add(foreground)) _space.Refresh();
             NativeWindow.RaiseWithoutFocus(_handle);
         }
         _fullscreen = _settings.HideInFullscreen && NativeWindow.IsFullscreen(foreground, _handle, NativeWindow.MonitorFromWindow(_handle, 1));
-        if (_ticks++ % 30 == 0) _space.Refresh();
+        if (_ticks++ % 60 == 0) _space.Refresh();
         UpdateVisibility();
+        _longestPulseMs = Math.Max(_longestPulseMs, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
     private void UpdateVisibility()
     {
-        var bar = NativeWindow.Taskbar();
-        // An auto-hidden taskbar does not get replaced with a floating widget.
-        var primary = NativeWindow.PrimaryMonitor();
-        var visibleBar = !bar.autoHide || bar.bounds.Top < primary.Monitor.Bottom - 4;
+        // Cached shell state: no synchronous Explorer messages in the frequent loop.
+        var visibleBar = !_autoHide || (NativeWindow.GetWindowRect(_taskbarHandle, out var actualBar) && actualBar.Top < _monitorBounds.Bottom - 4);
         var show = _hasSpace && visibleBar && !_settings.Hidden && !_fullscreen && !_locked && !_suspended;
         if (Opacity != (show ? 1 : 0)) Opacity = show ? 1 : 0;
     }
@@ -186,7 +242,7 @@ public partial class IslandWindow : Window
         if (_closing) return;
         var state = _media.State;
         TrackTitle.Text = state.Available ? state.Title : "Quiet Island";
-        var line = _lyrics.At(_media.PositionSeconds).current;
+        var line = _lyrics.At(_media.PositionSeconds + _settings.LyricsOffsetMs / 1000.0).current;
         TrackDetail.Text = DateTimeOffset.UtcNow < _alertUntil ? _alert : _focus.Active ? "Фокус · " + _focus.Display :
             _settings.ShowLyrics && _lyrics.Document.Lines.Count > 0 ? line : state.Available ? state.Artist : "Включите музыку в любимом плеере";
         TrackDetail.ToolTip = _settings.ShowLyrics ? _lyrics.Document.Status : state.Artist;
@@ -241,6 +297,7 @@ public partial class IslandWindow : Window
         else if (command == "--status") WriteStatus();
         else if (command == "--export-preview") ExportPreview();
         else if (command == "--lyrics-retry") _lyrics.Retry(_media.State, _settings.OnlineLyrics);
+        else if (command == "--enable-lyrics") { _settings.OnlineLyrics = _settings.ShowLyrics = true; Save(); _lyrics.Retry(_media.State, true); }
         else if (command == "--verify-media") _ = VerifyMediaAsync();
         else if (command.StartsWith("--timer=") && int.TryParse(command.Substring(8), out var seconds)) { _focus.Start(TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 86400))); RefreshContent(); }
         else if (command != "--startup" && command != "--collapse") OpenPanel();
@@ -257,7 +314,8 @@ public partial class IslandWindow : Window
             HotkeyOpen = _hotkeyOpen, HotkeyHide = _hotkeyHide, TaskbarOccupiedRight = _space.OccupiedRight,
             Media = new { _media.State.Title, _media.State.Artist, _media.State.Available, _media.State.Playing, Artwork = _media.State.Artwork != null, _media.State.Duration, Position = _media.PositionSeconds, _media.State.CanSeek, _media.LastSeekSucceeded },
             Lyrics = new { _settings.OnlineLyrics, _lyrics.Document.Status, SyncedLines = _lyrics.Document.Lines.Count },
-            Volume = _audio.Volume, Timer = _focus.Display, TimerActive = _focus.Active
+            Volume = _audio.Volume, Timer = _focus.Display, TimerActive = _focus.Active,
+            LongestPulseMs = _longestPulseMs, LastTaskbarScanMs = _space.LastScanMilliseconds
         }, new JsonSerializerOptions { WriteIndented = true }));
     }
     private async System.Threading.Tasks.Task VerifyMediaAsync() { await _media.SeekAsync(_media.PositionSeconds); WriteStatus(); }

@@ -17,6 +17,9 @@ public partial class App : Application
     private static string InstanceName => "QuietIsland." + WindowsIdentity.GetCurrent().User?.Value;
     protected override async void OnStartup(StartupEventArgs e)
     {
+        // A 480x48 widget updates at 1 Hz: software composition avoids loading a
+        // full GPU/shader pipeline for this tiny surface and has predictable cost.
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         base.OnStartup(e);
         DispatcherUnhandledException += (_, a) => { AppSettings.Log(a.Exception); a.Handled = true; };
         if (e.Args.Contains("--self-test")) { await Verification.RunAsync(); Shutdown(); return; }

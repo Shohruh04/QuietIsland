@@ -17,5 +17,6 @@
   <ItemGroup>
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <Content Include="Assets\QuietIsland.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
