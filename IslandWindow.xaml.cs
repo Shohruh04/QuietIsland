@@ -61,7 +61,7 @@ public partial class IslandWindow : Window
         ApplyTheme();
         _media = new MediaService(Dispatcher);
         _audio = new AudioService(Dispatcher);
-        _media.Changed += () => { _lyrics.Update(_media.State, _settings.OnlineLyrics); RefreshContent(); };
+        _media.Changed += () => { _lyrics.Update(_media.State, _settings.OnlineLyrics); RefreshContent(); UpdateVisibility(); };
         _lyrics.Changed += RefreshContent;
         _audio.Changed += () => { if (_settings.VolumeAlerts) Alert(_audio.Muted ? "Звук выключен" : "Громкость: " + Math.Round(_audio.Volume * 100) + "%"); };
         _space.Changed += () => { if (!_closing) { UpdatePlacement(); UpdateVisibility(); } };
@@ -336,8 +336,8 @@ public partial class IslandWindow : Window
     {
         // Cached shell state: no synchronous Explorer messages in the frequent loop.
         var visibleBar = !_autoHide || (NativeWindow.GetWindowRect(_taskbarHandle, out var actualBar) && actualBar.Top < _monitorBounds.Bottom - 4);
-        var show = _hasSpace && visibleBar && !_settings.Hidden && !_fullscreen && !_locked && !_suspended;
-        _visibilityReason = !_hasSpace ? "no-taskbar-space" : !visibleBar ? "taskbar-hidden" : _settings.Hidden ? "user-hidden" : _fullscreen ? "fullscreen" : _locked ? "locked" : _suspended ? "suspended" : "visible";
+        var show = _media.State.Available && _hasSpace && visibleBar && !_settings.Hidden && !_fullscreen && !_locked && !_suspended;
+        _visibilityReason = !_media.State.Available ? "no-media" : !_hasSpace ? "no-taskbar-space" : !visibleBar ? "taskbar-hidden" : _settings.Hidden ? "user-hidden" : _fullscreen ? "fullscreen" : _locked ? "locked" : _suspended ? "suspended" : "visible";
         if (Opacity != (show ? 1 : 0))
         {
             _visibilityTransitions++; Opacity = show ? 1 : 0;
