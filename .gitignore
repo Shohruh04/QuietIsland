@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+artifacts/
+.vs/
+*.user
+*.log
+status.json
+verification.json
+settings.json
+Lyrics/
