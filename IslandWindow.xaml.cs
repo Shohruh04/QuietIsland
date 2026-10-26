@@ -36,6 +36,8 @@ public partial class IslandWindow : Window
     private IntPtr _handle, _foreground;
     private bool _closing, _fullscreen, _locked, _suspended, _hasSpace, _hotkeyOpen, _hotkeyHide, _seeking, _syncSeek;
     private bool _seekPending;
+    private bool _shellUpdateQueued;
+    private int _taskbarCoverageRepairs;
     private int _seekGesture, _visibilityTransitions;
     private string _visibilityReason = "initializing", _seekTrack = "";
     private DateTimeOffset _alertUntil;
@@ -256,7 +258,9 @@ public partial class IslandWindow : Window
         _source = HwndSource.FromHwnd(_handle); _source.AddHook(WindowMessage);
         _foregroundWatch = new NativeWindow.ForegroundWatch(() =>
         {
-            if (!_closing && !Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(RefreshForeground));
+            if (_closing || _shellUpdateQueued || Dispatcher.HasShutdownStarted) return;
+            _shellUpdateQueued = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() => { _shellUpdateQueued = false; RefreshForeground(); }));
         });
         NativeWindow.SetPassive(_handle, false); // Only a verified empty taskbar gap is interactive.
         _hotkeyOpen = NativeWindow.RegisterHotKey(_handle, 1, 0x4003, 0x49);
@@ -316,6 +320,16 @@ public partial class IslandWindow : Window
         }
         _fullscreen = _settings.HideInFullscreen && NativeWindow.IsFullscreen(foreground, _handle, NativeWindow.MonitorFromWindow(_handle, 1));
         UpdateVisibility();
+        EnsureTaskbarCoverage();
+    }
+    private void EnsureTaskbarCoverage()
+    {
+        if (_closing || Opacity == 0 || !_hasSpace || _menu.Visible || _locked || _suspended) return;
+        if (NativeWindow.GetWindowRect(_handle, out var bounds) && NativeWindow.CoveredByTaskbar(bounds, _taskbarHandle))
+        {
+            _taskbarCoverageRepairs++;
+            NativeWindow.RaiseWithoutFocus(_handle);
+        }
     }
     private void UpdateVisibility()
     {
@@ -450,12 +464,15 @@ public partial class IslandWindow : Window
     {
         Directory.CreateDirectory(AppSettings.DataDirectory);
         NativeWindow.GetWindowRect(_handle, out var nativeBounds);
+        var covering = NativeWindow.GetAncestor(NativeWindow.WindowFromPoint(new NativeWindow.Point { X = nativeBounds.Left + nativeBounds.Width / 2, Y = nativeBounds.Top + nativeBounds.Height / 2 }), 2);
         File.WriteAllText(Path.Combine(AppSettings.DataDirectory, "status.json"), JsonSerializer.Serialize(new
         {
             ProcessId = Environment.ProcessId, _settings.Hidden, Startup = AppSettings.StartupEnabled,
             NativeVisible = NativeWindow.IsWindowVisible(_handle), Opacity, Handle = _handle.ToInt64(), Left, Top, Width, Height,
             PhysicalBounds = new { nativeBounds.Left, nativeBounds.Top, nativeBounds.Right, nativeBounds.Bottom }, DpiScale = _scale,
             ActualMonitor = Forms.Screen.FromHandle(_handle).DeviceName,
+            CoveredByTaskbar = covering == _taskbarHandle, CoveringClass = NativeWindow.WindowClass(covering), ForegroundClass = NativeWindow.WindowClass(NativeWindow.GetForegroundWindow()),
+            TaskbarCoverageRepairs = _taskbarCoverageRepairs,
             Fullscreen = _fullscreen, HasSpace = _hasSpace, Placement = _settings.Placement, _settings.MonitorDevice, _settings.Language, _settings.WidthDip,
             VisibilityReason = _visibilityReason, VisibilityTransitions = _visibilityTransitions, _settings.BackgroundOpacityPercent, LastTaskbarScanSucceeded = _space.LastScanSucceeded,
             NoActivate = (NativeWindow.GetWindowLong(_handle, NativeWindow.ExStyle) & NativeWindow.NoActivate) != 0,

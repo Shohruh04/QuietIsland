@@ -48,6 +48,11 @@ internal static class Verification
         checks["SeekConfirmsBeforeApiCompletion"] = MediaService.ConfirmsSeek(78.1, requested.AddMilliseconds(100), 78, requested.AddSeconds(-1), requested, requested.AddMilliseconds(300), 1);
         checks["SeekConfirmsBackwardWhilePaused"] = MediaService.ConfirmsSeek(10, requested.AddMilliseconds(50), 10, requested.AddSeconds(-1), requested, requested.AddMilliseconds(300), 0);
         checks["EnglishAndRussianLabels"] = UiText.Translate("Прозрачность фона", "en") == "Background transparency" && UiText.Translate("Прозрачность фона", "ru") == "Прозрачность фона";
+        var cover = new System.Windows.Media.DrawingImage(); cover.Freeze();
+        var illustratedTrack = new MediaState("Song", "Artist", Available: true, Artwork: cover, Album: "Album");
+        checks["MissingThumbnailRetainsSameTrackArtwork"] = ReferenceEquals(MediaService.ResolveArtwork(illustratedTrack, "Song", "Artist", "Album", null), cover);
+        checks["NewTrackNeverInheritsOldArtwork"] = MediaService.ResolveArtwork(illustratedTrack, "Another song", "Artist", "Album", null) == null;
+        checks["DifferentAlbumNeverInheritsOldArtwork"] = MediaService.ResolveArtwork(illustratedTrack, "Song", "Artist", "Different album", null) == null;
         var lyrics = LyricsService.Parse("[offset:100]\n[00:01.50][00:03.25]Test line\n[00:02,00]Another line");
         checks["LyricsMultipleStampsAndOffset"] = lyrics.Count == 3 && Math.Abs(lyrics[0].Seconds - 1.4) < .001 && Math.Abs(lyrics[2].Seconds - 3.15) < .001;
         checks["LyricsSorted"] = lyrics[1].Text == "Another line";

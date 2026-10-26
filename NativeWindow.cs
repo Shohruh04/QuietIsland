@@ -30,13 +30,25 @@ internal static class NativeWindow
     internal sealed class ForegroundWatch : IDisposable
     {
         private readonly WinEventCallback _callback;
-        private IntPtr _hook;
+        private IntPtr _hook, _shellHook;
         public ForegroundWatch(Action changed)
         {
-            _callback = (_, _, _, _, _, _, _) => changed();
+            _callback = (_, eventId, window, _, _, _, _) =>
+            {
+                if (eventId == 3) { changed(); return; }
+                var root = GetAncestor(window, 2);
+                var name = WindowClass(root);
+                if (window == GetDesktopWindow() || name is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") changed();
+            };
             _hook = SetWinEventHook(3, 3, IntPtr.Zero, _callback, 0, 0, 2); // EVENT_SYSTEM_FOREGROUND, skip this process.
+            _shellHook = SetWinEventHook(0x8002, 0x8005, IntPtr.Zero, _callback, 0, 0, 2); // Shell show/hide/reorder/focus, including unchanged foreground HWND.
         }
-        public void Dispose() { if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; } GC.KeepAlive(_callback); }
+        public void Dispose()
+        {
+            if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; }
+            if (_shellHook != IntPtr.Zero) { UnhookWinEvent(_shellHook); _shellHook = IntPtr.Zero; }
+            GC.KeepAlive(_callback);
+        }
     }
     [DllImport("user32.dll")] internal static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] internal static extern uint GetDpiForWindow(IntPtr h);
@@ -49,6 +61,19 @@ internal static class NativeWindow
     [DllImport("user32.dll")] internal static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
     [DllImport("user32.dll")] internal static extern bool GetMonitorInfo(IntPtr m, ref MonitorInfo info);
     [DllImport("user32.dll")] internal static extern IntPtr WindowFromPoint(Point p);
+    [DllImport("user32.dll")] internal static extern IntPtr GetAncestor(IntPtr h, uint flags);
+    [DllImport("user32.dll")] private static extern IntPtr GetDesktopWindow();
+    internal static bool CoveredByTaskbar(Rect bounds, IntPtr taskbar)
+    {
+        if (taskbar == IntPtr.Zero || bounds.Width <= 0 || bounds.Height <= 0) return false;
+        foreach (var fraction in new[] { .25, .5, .75 })
+        {
+            var covering = GetAncestor(WindowFromPoint(new Point { X = bounds.Left + (int)(bounds.Width * fraction), Y = bounds.Top + bounds.Height / 2 }), 2);
+            if (covering == taskbar) return true;
+        }
+        return false;
+    }
+    internal static string WindowClass(IntPtr h) { var name = new StringBuilder(128); GetClassName(h, name, name.Capacity); return name.ToString(); }
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindow(string name, string? caption);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string name, string? caption);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr h, StringBuilder name, int max);

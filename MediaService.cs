@@ -27,6 +27,10 @@ internal sealed class MediaService : IDisposable
     private GlobalSystemMediaTransportControlsSession? _session;
     private int _generation, _sourceSequence, _seekSequence;
     private bool _disposed, _refreshRunning, _refreshRequested;
+    private bool _metadataReady;
+    private TaskCompletionSource<bool> _metadataSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private string _waitingTrack = "";
+    private DateTimeOffset _waitingSince;
     private TimeSpan _position;
     private DateTimeOffset _positionAt;
     private double _rate = 1;
@@ -127,9 +131,13 @@ internal sealed class MediaService : IDisposable
         if (_session != null) Unsubscribe(_session);
         _session = session;
         _generation++;
+        _metadataSignal.TrySetResult(true);
         LastSeekSucceeded = null;
         _pendingSeek = null; LastSeekConfirmed = null;
-        State = new(); _position = TimeSpan.Zero; _positionAt = DateTimeOffset.UtcNow; _rate = 1;
+        _metadataReady = false;
+        // A player can briefly remove/recreate its session between songs. Keep
+        // the last complete presentation until replacement data is ready.
+        State = State with { Playing = false, CanPlayPause = false, CanPrevious = false, CanNext = false, CanSeek = false };
         Changed?.Invoke();
         if (_session != null)
         {
@@ -137,14 +145,25 @@ internal sealed class MediaService : IDisposable
             _session.PlaybackInfoChanged += PlaybackChanged;
             _session.TimelinePropertiesChanged += TimelineChanged;
         }
-        RequestRefresh();
+        if (_session != null) RequestRefresh();
+        else _ = ConfirmNoSessionAsync(_generation);
+    }
+    private async Task ConfirmNoSessionAsync(int version)
+    {
+        try { await Task.Delay(600, _lifetime.Token); }
+        catch (OperationCanceledException) { return; }
+        if (_disposed || version != _generation || _session != null) return;
+        RefreshSources();
+        if (_disposed || version != _generation || _session != null) return;
+        State = new(); _position = TimeSpan.Zero; _waitingTrack = "";
+        Changed?.Invoke();
     }
     private void PropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) => Queue(() => { if (sender == _session) RequestRefresh(); });
     private void PlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) => Queue(() => { if (sender == _session) UpdatePlayback(); });
     private void TimelineChanged(GlobalSystemMediaTransportControlsSession sender, TimelinePropertiesChangedEventArgs args) => Queue(() => { if (sender == _session) UpdateTimeline(); });
     private void UpdateTimeline()
     {
-        if (_disposed || _session == null) return;
+        if (_disposed || _session == null || !_metadataReady) return;
         try
         {
             var timeline = _session.GetTimelineProperties();
@@ -169,7 +188,7 @@ internal sealed class MediaService : IDisposable
         Math.Abs(position + Math.Max(0, (now - timestamp).TotalSeconds) * rate - (target + Math.Max(0, (now - requested).TotalSeconds) * rate)) <= 2;
     private void UpdatePlayback()
     {
-        if (_disposed || _session == null) return;
+        if (_disposed || _session == null || !_metadataReady) return;
         try
         {
             var info = _session.GetPlaybackInfo();
@@ -184,6 +203,8 @@ internal sealed class MediaService : IDisposable
     {
         if (_disposed) return;
         _generation++;
+        _metadataSignal.TrySetResult(true);
+        _metadataSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _refreshRequested = true;
         if (!_refreshRunning) _ = RefreshLoopAsync();
     }
@@ -198,12 +219,26 @@ internal sealed class MediaService : IDisposable
             {
                 _refreshRequested = false;
                 var version = _generation;
+                var signal = _metadataSignal.Task;
                 var session = _session;
                 if (session == null) continue;
                 try
                 {
                     var properties = await session.TryGetMediaPropertiesAsync().AsTask(_lifetime.Token);
                     if (!IsCurrent(session, version)) continue;
+                    var sameTrack = SameTrack(State, properties.Title, properties.Artist, properties.AlbumTitle);
+                    var incomplete = string.IsNullOrWhiteSpace(properties.Title) || (properties.Thumbnail == null && !sameTrack);
+                    if (incomplete && State.Available)
+                    {
+                        var key = properties.Title + "\n" + properties.Artist + "\n" + properties.AlbumTitle;
+                        if (_waitingTrack != key) { _waitingTrack = key; _waitingSince = DateTimeOffset.UtcNow; }
+                        var remaining = TimeSpan.FromMilliseconds(600) - (DateTimeOffset.UtcNow - _waitingSince);
+                        if (remaining > TimeSpan.Zero)
+                        {
+                            await Task.WhenAny(signal, Task.Delay(remaining, _lifetime.Token));
+                            if (!IsCurrent(session, version)) continue;
+                        }
+                    }
                     ImageSource? image = null;
                     try
                     {
@@ -216,16 +251,24 @@ internal sealed class MediaService : IDisposable
                     catch (OperationCanceledException) when (_disposed) { break; }
                     catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
                     if (!IsCurrent(session, version)) continue;
-                    if (State.Title != properties.Title || State.Artist != properties.Artist) { _pendingSeek = null; LastSeekConfirmed = null; }
+                    image = ResolveArtwork(State, properties.Title, properties.Artist, properties.AlbumTitle, image);
+                    if (!sameTrack) { _pendingSeek = null; LastSeekConfirmed = null; }
+                    _metadataReady = true; _waitingTrack = "";
                     State = new(string.IsNullOrWhiteSpace(properties.Title) ? "Медиа" : properties.Title, properties.Artist, true, Artwork: image, Album: properties.AlbumTitle);
                     UpdatePlayback();
                 }
                 catch (OperationCanceledException) when (_disposed) { break; }
-                catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
+                catch (Exception ex)
+                {
+                    if (!_disposed) AppSettings.Log(ex);
+                    if (IsCurrent(session, version) && !_metadataReady) { State = new(); _position = TimeSpan.Zero; Changed?.Invoke(); }
+                }
             }
         }
         finally { _refreshRunning = false; if (_disposed) _lifetime.Dispose(); }
     }
+    internal static bool SameTrack(MediaState state, string title, string artist, string album) => state.Available && state.Title == title && state.Artist == artist && state.Album == album;
+    internal static ImageSource? ResolveArtwork(MediaState state, string title, string artist, string album, ImageSource? artwork) => artwork ?? (SameTrack(state, title, artist, album) ? state.Artwork : null);
     private static async Task<ImageSource?> LoadArtworkAsync(IRandomAccessStreamReference thumbnail, CancellationToken token)
     {
         using var stream = await thumbnail.OpenReadAsync().AsTask(token).ConfigureAwait(false);
