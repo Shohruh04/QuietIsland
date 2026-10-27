@@ -16,6 +16,7 @@ public partial class IslandWindow : Window
     private readonly IslandViewModel _viewModel;
     private readonly TrayMenuController _tray;
     private readonly TaskbarPlacementController _placement;
+    private readonly UpdateController? _updates;
     private string _monitorDevice;
     private bool _closing, _moving, _moved, _seeking;
     private int _moveCursorX;
@@ -28,12 +29,12 @@ public partial class IslandWindow : Window
     internal TaskbarPlacementController PlacementController => _placement;
 
     public IslandWindow() : this(App.CreateViewModel(System.Windows.Threading.Dispatcher.CurrentDispatcher), new TaskbarSpace()) { }
-    internal IslandWindow(IslandViewModel viewModel, TaskbarSpace space)
+    internal IslandWindow(IslandViewModel viewModel, TaskbarSpace space, UpdateController? updates = null)
     {
         InitializeComponent();
-        _viewModel = viewModel; DataContext = viewModel;
+        _viewModel = viewModel; DataContext = viewModel; _updates = updates;
         _monitorDevice = viewModel.Settings.MonitorDevice;
-        _tray = new TrayMenuController(viewModel, OpenPanel, ToggleHidden, ImportLyrics, CustomizeWidth, CustomizePosition, ExitApp);
+        _tray = new TrayMenuController(viewModel, OpenPanel, ToggleHidden, ImportLyrics, CustomizeWidth, CustomizePosition, ExitApp, updates, () => Handle);
         _placement = new TaskbarPlacementController(this, viewModel.Settings, space,
             () => viewModel.Media.State.Available, () => _tray.IsMenuVisible, ApplyPlacement);
         _placement.OpenRequested += OpenPanel;
@@ -182,6 +183,7 @@ public partial class IslandWindow : Window
             case "--status": WriteStatus(); break;
             case "--export-preview": WindowDiagnostics.ExportPreview(Shell); break;
             case "--verify-media": _ = VerifyMediaAsync(); break;
+            case "--check-updates": if (_updates != null) _ = _updates.CheckManuallyAsync(Handle); break;
             default: if (!_viewModel.HandleCommand(command) && command is not ("--startup" or "--collapse")) OpenPanel(); break;
         }
     }
@@ -195,6 +197,6 @@ public partial class IslandWindow : Window
         SourceInitialized -= InitializeNative; Closed -= Cleanup; MouseWheel -= OnMouseWheel; MouseRightButtonUp -= ShowContextMenu;
         _viewModel.SettingsChanged -= OnSettingsChanged; _viewModel.MediaChanged -= OnMediaChanged; _viewModel.PropertyChanged -= OnPresentationChanged; _viewModel.NotificationRequested -= _tray.Notify;
         _placement.OpenRequested -= OpenPanel; _placement.HideRequested -= ToggleHidden; _placement.VisibilityChanged -= OnVisibilityChanged; _placement.SessionStateChanged -= _viewModel.SetSessionState;
-        _placement.Dispose(); _tray.Dispose(); _viewModel.Dispose();
+        _updates?.Dispose(); _placement.Dispose(); _tray.Dispose(); _viewModel.Dispose();
     }
 }

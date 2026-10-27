@@ -46,12 +46,15 @@ public partial class App : Application
             if (command == "--disable-startup") new StartupRegistration().SetEnabled(false);
             Shutdown(); return;
         }
-        var island = new IslandWindow(CreateViewModel(Dispatcher), new TaskbarSpace());
+        var viewModel = CreateViewModel(Dispatcher);
+        var updates = new UpdateController(new GitHubUpdateService(), new UpdateInstaller(), viewModel.Settings, viewModel.Startup, viewModel.SaveSettings);
+        var island = new IslandWindow(viewModel, new TaskbarSpace(), updates);
         MainWindow = island;
         island.Show();
         NativeWindow.ShowWindow(island.Handle, 4);
         if (command != "--startup") island.HandleCommand(command);
         _ = ListenAsync(island, _shutdown.Token);
+        updates.Start();
     }
 
     internal static IslandViewModel CreateViewModel(Dispatcher dispatcher)

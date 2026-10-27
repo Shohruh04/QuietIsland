@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 — 2026-10-27
+
+- Add manual and daily automatic GitHub update checks, with an opt-out setting.
+- Ask before downloading and opening the installer; portable copies use the release page.
+- Verify installer identity, size and SHA-256, validate redirects, and support download cancellation.
+- Preserve the current startup preference and keep the widget running if the installer wizard is cancelled.
+
 ## 1.1.1 — 2026-10-27
 
 - Separate presentation state, tray menus, taskbar coordination and infrastructure services.

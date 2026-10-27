@@ -19,16 +19,19 @@ internal sealed class TrayMenuController : IDisposable
     private readonly Forms.ToolStripMenuItem _hiddenItem, _startupItem, _onlineItem, _lyricsItem, _volumeItem, _fullscreenItem;
     private readonly Forms.ToolStripMenuItem[] _placementItems;
     private bool _disposed;
+    private readonly UpdateController? _updates;
+    private readonly Forms.ToolStripMenuItem? _updateCheckItem, _automaticUpdateItem, _updateStatusItem;
     private AppSettings _settings => _viewModel.Settings;
     private MediaService _media => _viewModel.Media;
     private LyricsService _lyrics => _viewModel.Lyrics;
     public bool IsMenuVisible => !_disposed && _menu.Visible;
 
     public TrayMenuController(IslandViewModel viewModel, Action show, Action hideToggle,
-        Action importLyrics, Action customizeWidth, Action customizePosition, Action exit)
+        Action importLyrics, Action customizeWidth, Action customizePosition, Action exit, UpdateController? updates = null, Func<IntPtr>? owner = null)
     {
         _viewModel = viewModel;
         _show = show;
+        _updates = updates;
         _menu.Items.Add("Показать виджет                  Ctrl+Alt+I", null, (_, _) => OnUi(_show));
         _hiddenItem = AddToggle("Скрыть                                 Ctrl+Alt+D", hideToggle);
         var positions = new Forms.ToolStripMenuItem("Расположение");
@@ -143,6 +146,15 @@ internal sealed class TrayMenuController : IDisposable
         _startupItem = AddToggle("Запускать вместе с Windows", () => _viewModel.ToggleStartup());
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add("Открыть папку программы", null, (_, _) => Process.Start(new ProcessStartInfo("explorer.exe", AppContext.BaseDirectory) { UseShellExecute = true }));
+        if (updates != null)
+        {
+            _updateCheckItem = new Forms.ToolStripMenuItem("Проверить обновления…", null, (_, _) => OnUi(() => _ = updates.CheckManuallyAsync(owner?.Invoke() ?? IntPtr.Zero)));
+            _automaticUpdateItem = AddToggle("Автоматически проверять обновления", updates.ToggleAutomatic);
+            _updateStatusItem = new Forms.ToolStripMenuItem { Enabled = false, Visible = false };
+            _menu.Items.Add(_updateCheckItem); _menu.Items.Add(_updateStatusItem);
+            updates.Changed += ViewModelSettingsChanged;
+            updates.NotificationRequested += UpdateNotification;
+        }
         var version = typeof(App).Assembly.GetName().Version;
         var about = new Forms.ToolStripMenuItem("О программе");
         about.DropDownItems.Add(new Forms.ToolStripMenuItem("QuietIsland " + version?.ToString(3)) { Enabled = false });
@@ -166,6 +178,7 @@ internal sealed class TrayMenuController : IDisposable
         LocalizeMenu(_menu.Items);
     }
     private void ViewModelSettingsChanged() => Refresh();
+    private void UpdateNotification(string message) => Notify(message, 8);
 
     public void ShowContextMenu() => OnUi(() =>
     {
@@ -206,6 +219,7 @@ internal sealed class TrayMenuController : IDisposable
     {
         foreach (Forms.ToolStripItem item in items)
         {
+            if (ReferenceEquals(item, _updateStatusItem)) continue;
             var original = _menuText.GetValue(item, value => new(value.Text ?? "", value.ToolTipText ?? ""));
             item.Text = UiText.T(original.Text);
             item.ToolTipText = UiText.T(original.Tooltip);
@@ -221,6 +235,13 @@ internal sealed class TrayMenuController : IDisposable
         _lyricsItem.Checked = _settings.ShowLyrics;
         _volumeItem.Checked = _settings.VolumeAlerts;
         _fullscreenItem.Checked = _settings.HideInFullscreen;
+        if (_updates != null && _updateCheckItem != null && _automaticUpdateItem != null && _updateStatusItem != null)
+        {
+            _updateCheckItem.Enabled = !_updates.IsBusy;
+            _automaticUpdateItem.Checked = _settings.AutoCheckUpdates;
+            _updateStatusItem.Visible = _updates.IsBusy || _updates.IsChecking || _updates.AvailableVersion != null;
+            _updateStatusItem.Text = _updates.IsBusy ? UiText.T("Проверка / загрузка обновления…") : _updates.IsChecking ? UiText.T("Проверка обновлений…") : string.Format(UiText.T("Доступна версия {0}"), _updates.AvailableVersion?.ToString(3));
+        }
         var values = new[] { "left", "center", "right", "auto", "custom" };
         for (var i = 0; i < values.Length; i++) _placementItems[i].Checked = _settings.Placement == values[i];
     }
@@ -229,6 +250,7 @@ internal sealed class TrayMenuController : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_updates != null) { _updates.Changed -= ViewModelSettingsChanged; _updates.NotificationRequested -= UpdateNotification; }
         _viewModel.SettingsChanged -= ViewModelSettingsChanged;
         _menu.Opening -= MenuOpening;
         _tray.DoubleClick -= TrayDoubleClick;
