@@ -9,12 +9,16 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\QuietIsland.ico</ApplicationIcon>
     <AssemblyName>QuietIsland</AssemblyName>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <DebugType>none</DebugType>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+    <EmbeddedResource Remove="Tests\**\*" />
+    <None Remove="Tests\**\*" />
+    <InternalsVisibleTo Include="QuietIsland.Tests" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <Content Include="Assets\QuietIsland.ico" CopyToOutputDirectory="PreserveNewest" />
     <None Update="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />

@@ -31,7 +31,7 @@ internal sealed class AudioService : IMMNotificationClient, IDisposable
             Muted = _device.AudioEndpointVolume.Mute;
             _device.AudioEndpointVolume.OnVolumeNotification += VolumeChanged;
         }
-        catch (Exception ex) { AppSettings.Log(ex); }
+        catch (Exception ex) { AppLog.Write(ex); }
     }
     private void VolumeChanged(AudioVolumeNotificationData data) => _dispatcher.BeginInvoke(() =>
     {
@@ -41,7 +41,7 @@ internal sealed class AudioService : IMMNotificationClient, IDisposable
     public void SetVolume(float value)
     {
         try { if (_device != null) _device.AudioEndpointVolume.MasterVolumeLevelScalar = Math.Clamp(value, 0, 1); }
-        catch (Exception ex) { AppSettings.Log(ex); }
+        catch (Exception ex) { AppLog.Write(ex); }
     }
     public void OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
     {

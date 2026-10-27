@@ -77,7 +77,7 @@ internal sealed class LyricsService : IDisposable
             Changed?.Invoke();
             _ = SaveCacheAsync(_key, version, new(Document, _options));
         }
-        catch (Exception ex) { AppSettings.Log(ex); }
+        catch (Exception ex) { AppLog.Write(ex); }
     }
     public void SelectCandidate(int index)
     {
@@ -155,7 +155,7 @@ internal sealed class LyricsService : IDisposable
         catch (Exception ex)
         {
             // Do not log HTTP bodies, lyrics, or request URLs containing music metadata.
-            AppSettings.Log(new InvalidOperationException("Ошибка получения текста: " + ex.GetType().Name));
+            AppLog.Write(new InvalidOperationException("Ошибка получения текста: " + ex.GetType().Name));
             Publish(key, version, new("Не удалось загрузить текст песни", new()), token);
         }
     }
@@ -213,7 +213,7 @@ internal sealed class LyricsService : IDisposable
         NormalizeMatch(candidate.Title) == NormalizeMatch(track.Title) &&
         NormalizeMatch(PrimaryArtist(candidate.Artist)) == NormalizeMatch(PrimaryArtist(track.Artist));
 
-    private static string CacheDirectory => Path.Combine(AppSettings.DataDirectory, "Lyrics");
+    private static string CacheDirectory => Path.Combine(AppPaths.DataDirectory, "Lyrics");
     private static string CachePath(string key) => Path.Combine(CacheDirectory, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))) + ".json");
     private static async Task<LyricsCacheEntry?> ReadCacheAsync(string key, CancellationToken token)
     {
@@ -252,7 +252,7 @@ internal sealed class LyricsService : IDisposable
                 .Where(f => Regex.IsMatch(f.Name, @"^[A-F0-9]{64}\.json$"))
                 .OrderByDescending(f => f.LastWriteTimeUtc).Skip(100)) old.Delete();
         }
-        catch (Exception ex) { AppSettings.Log(new IOException("Ошибка кеша текста: " + ex.GetType().Name)); }
+        catch (Exception ex) { AppLog.Write(new IOException("Ошибка кеша текста: " + ex.GetType().Name)); }
         finally
         {
             if (temporary != null) { try { File.Delete(temporary); } catch { } }

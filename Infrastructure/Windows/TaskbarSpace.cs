@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
+using System.Threading;
 
 namespace QuietIsland;
 
@@ -20,6 +21,7 @@ internal sealed class TaskbarSpace : IDisposable
     private bool _retryQueued;
     private bool _refreshAgain;
     private int _failedScans;
+    private readonly CancellationTokenSource _lifetime = new();
     public double? OccupiedRight { get; private set; }
     public IReadOnlyList<System.Windows.Rect> Buttons { get; private set; } = Array.Empty<System.Windows.Rect>();
     public bool Valid { get; private set; }
@@ -27,12 +29,12 @@ internal sealed class TaskbarSpace : IDisposable
     public bool LastScanSucceeded { get; private set; }
     public event Action? Changed;
     public string MonitorDevice { get; set; } = "";
-    public async void Refresh(bool force = false)
+    public async Task RefreshAsync(bool force = false)
     {
         if (_disposed) return;
         if (_busy) { _refreshAgain |= force; return; }
         var wait = (force ? TimeSpan.FromMilliseconds(500) : TimeSpan.FromSeconds(5)) - (DateTimeOffset.UtcNow - _checked);
-        if (wait > TimeSpan.Zero) { if (force && !_retryQueued) RetrySoon((int)wait.TotalMilliseconds + 20); return; }
+        if (wait > TimeSpan.Zero) { if (force && !_retryQueued) _ = RetrySoonAsync((int)wait.TotalMilliseconds + 20); return; }
         _busy = true; _checked = DateTimeOffset.UtcNow;
         var started = Stopwatch.GetTimestamp();
         var hwnd = NativeWindow.TaskbarHandle(MonitorDevice);
@@ -63,18 +65,19 @@ internal sealed class TaskbarSpace : IDisposable
                     return rectangles;
                 }
             });
+            if (_disposed) return;
             // Explorer may replace the taskbar while UIA is running.
             var currentHandle = NativeWindow.TaskbarHandle(MonitorDevice);
             var current = NativeWindow.Taskbar(currentHandle);
             if (hwnd != currentHandle || !EqualBounds(taskbar.bounds, current.bounds) || taskbar.trayLeft != current.trayLeft) Invalidate();
             else AcceptScan(hwnd, taskbar.bounds, taskbar.trayLeft, found, DateTimeOffset.UtcNow);
         }
-        catch { AcceptScan(hwnd, snapshot.bounds, snapshot.trayLeft, null, DateTimeOffset.UtcNow); }
+        catch { if (!_disposed) AcceptScan(hwnd, snapshot.bounds, snapshot.trayLeft, null, DateTimeOffset.UtcNow); }
         finally
         {
             LastScanMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds; _busy = false; if (!_disposed) Changed?.Invoke();
-            if (_refreshAgain) { _refreshAgain = false; if (!_retryQueued) RetrySoon(550); }
-            else if (!LastScanSucceeded && _failedScans < 5 && !_retryQueued) RetrySoon(Valid ? 550 : 2000);
+            if (!_disposed && _refreshAgain) { _refreshAgain = false; if (!_retryQueued) _ = RetrySoonAsync(550); }
+            else if (!_disposed && !LastScanSucceeded && _failedScans < 5 && !_retryQueued) _ = RetrySoonAsync(Valid ? 550 : 2000);
         }
     }
     internal bool Matches(IntPtr handle, NativeWindow.Rect bounds, int trayLeft) => Valid && SameGeometry(handle, bounds, trayLeft);
@@ -93,11 +96,16 @@ internal sealed class TaskbarSpace : IDisposable
         }
         else { _failedScans++; _failureSince ??= now; if (!same || now - _failureSince.Value >= TimeSpan.FromSeconds(2)) Invalidate(); }
     }
-    private async void RetrySoon(int milliseconds)
+    private async Task RetrySoonAsync(int milliseconds)
     {
         _retryQueued = true;
-        await Task.Delay(milliseconds);
-        _retryQueued = false; Refresh(true);
+        try
+        {
+            await Task.Delay(milliseconds, _lifetime.Token);
+            _retryQueued = false;
+            await RefreshAsync(true);
+        }
+        catch (OperationCanceledException) when (_disposed) { _retryQueued = false; }
     }
-    public void Dispose() { _disposed = true; Changed = null; }
+    public void Dispose() { if (_disposed) return; _disposed = true; Changed = null; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

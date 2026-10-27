@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Security.Principal;
 using System.Text;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace QuietIsland;
 
@@ -21,7 +22,7 @@ public partial class App : Application
         // full GPU/shader pipeline for this tiny surface and has predictable cost.
         System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         base.OnStartup(e);
-        DispatcherUnhandledException += (_, a) => { AppSettings.Log(a.Exception); a.Handled = true; };
+        DispatcherUnhandledException += (_, a) => { AppLog.Write(a.Exception); a.Handled = true; };
         if (e.Args.Contains("--self-test")) { await Verification.RunAsync(); Shutdown(); return; }
         _instance = new Mutex(true, "Local\\" + InstanceName, out var first);
         var command = e.Args.FirstOrDefault(a => a.StartsWith("--")) ?? "--open";
@@ -37,20 +38,27 @@ public partial class App : Application
                 using var timeout = new CancellationTokenSource(5000);
                 await reader.ReadLineAsync(timeout.Token);
             }
-            catch (Exception ex) { AppSettings.Log(ex); }
+            catch (Exception ex) { AppLog.Write(ex); }
             Shutdown(); return;
         }
         if (command is "--exit" or "--disable-startup")
         {
-            if (command == "--disable-startup") AppSettings.SetStartup(false);
+            if (command == "--disable-startup") new StartupRegistration().SetEnabled(false);
             Shutdown(); return;
         }
-        var island = new IslandWindow();
+        var island = new IslandWindow(CreateViewModel(Dispatcher), new TaskbarSpace());
         MainWindow = island;
         island.Show();
         NativeWindow.ShowWindow(island.Handle, 4);
         if (command != "--startup") island.HandleCommand(command);
         _ = ListenAsync(island, _shutdown.Token);
+    }
+
+    internal static IslandViewModel CreateViewModel(Dispatcher dispatcher)
+    {
+        var store = new JsonSettingsStore();
+        return new IslandViewModel(store.Load(), store, new StartupRegistration(), new MediaService(dispatcher),
+            new AudioService(dispatcher), new LyricsService(), new FocusTimer(), dispatcher);
     }
 
     private async Task ListenAsync(IslandWindow island, CancellationToken token)
@@ -78,7 +86,7 @@ public partial class App : Application
                 }
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { AppSettings.Log(ex); await Task.Delay(1000, token); }
+            catch (Exception ex) { AppLog.Write(ex); await Task.Delay(1000, token); }
         }
     }
 

@@ -23,6 +23,7 @@ Designed for Windows 11 x64. Uninstall through **Settings → Apps → Installed
 - Album artwork, playback controls, click/drag seeking, and mouse-wheel volume.
 - Synchronized lyrics from LRCLIB, local `.lrc` files, version selection, and timing adjustment.
 - Drag placement, monitor selection, custom width, transparency, and eight color themes.
+- Edge snapping when dragged left/right, plus scrolling text only when a title does not fit.
 - Safe placement around Start and app buttons, including a left-aligned taskbar.
 - English/Russian UI, optional startup, and a focus timer.
 - Automatically hides when no media session exists; paused tracks remain visible.
@@ -60,6 +61,14 @@ To build the self-contained installer and portable ZIP, also install **Inno Setu
 ```
 
 Output is written to `artifacts/`. The version comes from `QuietIsland.csproj`. Update it and [CHANGELOG.md](CHANGELOG.md), then push a matching `vX.Y.Z` tag to build and publish through GitHub Actions.
+
+PowerShell scripts are developer tools only. Released Setup and portable builds contain the runtime and run without PowerShell scripts on the user's PC.
+
+## Architecture and tests
+
+One WPF app: `Presentation/` contains the view model, view and tray UI; `Infrastructure/` handles Windows/media integration, settings and diagnostics; `Models/` contains settings and timer state. Dependencies are composed at startup. Third-party license files are preserved and excluded from GitHub language statistics.
+
+Run the isolated MSTest suite with `dotnet test Tests/QuietIsland.Tests.csproj -c Release`. Keep `QuietIsland.exe --self-test` for native window/taskbar and text-animation integration checks.
 
 ## Privacy and contributing
 

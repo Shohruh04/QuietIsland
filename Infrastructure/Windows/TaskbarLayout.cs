@@ -7,6 +7,13 @@ namespace QuietIsland;
 
 internal static class TaskbarLayout
 {
+    internal static string GetPinMode(double desiredLeft, Rect? left, Rect? right, double scale)
+    {
+        if (!double.IsFinite(desiredLeft) || !double.IsFinite(scale) || scale <= 0) return "custom";
+        var leftDistance = left.HasValue ? Math.Max(0, desiredLeft - left.Value.Left) : double.PositiveInfinity;
+        var rightDistance = right.HasValue ? Math.Max(0, right.Value.Left - desiredLeft) : double.PositiveInfinity;
+        return Math.Min(leftDistance, rightDistance) <= 16 * scale ? leftDistance <= rightDistance ? "left" : "right" : "custom";
+    }
     // All inputs and output are physical pixels. Reserve every observed button.
     public static Rect? Choose(NativeWindow.Rect bar, int trayLeft, IReadOnlyList<Rect> buttons, double scale, string placement, int widthDip = 480, double positionFraction = .5)
     {

@@ -60,7 +60,7 @@ internal sealed class MediaService : IDisposable
             _manager.SessionsChanged += SessionListChanged;
             RefreshSources();
         }
-        catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
+        catch (Exception ex) { if (!_disposed) AppLog.Write(ex); }
     }
     private void Queue(Action action)
     {
@@ -87,7 +87,7 @@ internal sealed class MediaService : IDisposable
             AttachSession(selected?.Session ?? _manager.GetCurrentSession());
             PublishSources();
         }
-        catch (Exception ex) { AppSettings.Log(ex); }
+        catch (Exception ex) { AppLog.Write(ex); }
     }
     public bool SelectSource(string? id)
     {
@@ -101,7 +101,7 @@ internal sealed class MediaService : IDisposable
             PublishSources();
             return true;
         }
-        catch (Exception ex) { AppSettings.Log(ex); return false; }
+        catch (Exception ex) { AppLog.Write(ex); return false; }
     }
     private void PublishSources()
     {
@@ -184,7 +184,7 @@ internal sealed class MediaService : IDisposable
             _positionAt = timeline.LastUpdatedTime;
             if (_positionAt == default) _positionAt = DateTimeOffset.UtcNow;
         }
-        catch (Exception ex) { AppSettings.Log(ex); }
+        catch (Exception ex) { AppLog.Write(ex); }
     }
     public void ReconcileSeek() { if (_pendingSeek is { } pending && DateTimeOffset.UtcNow >= pending.Deadline) { UpdateTimeline(); Changed?.Invoke(); } }
     internal static bool ConfirmsSeek(double position, DateTimeOffset timestamp, double target, DateTimeOffset baseline, DateTimeOffset requested, DateTimeOffset now, double rate) =>
@@ -201,7 +201,7 @@ internal sealed class MediaService : IDisposable
                 CanPlayPause = info.Controls.IsPlayPauseToggleEnabled, CanPrevious = info.Controls.IsPreviousEnabled, CanNext = info.Controls.IsNextEnabled, CanSeek = info.Controls.IsPlaybackPositionEnabled };
             UpdateTimeline(); Changed?.Invoke();
         }
-        catch (Exception ex) { AppSettings.Log(ex); }
+        catch (Exception ex) { AppLog.Write(ex); }
     }
     private void RequestRefresh()
     {
@@ -253,7 +253,7 @@ internal sealed class MediaService : IDisposable
                         }
                     }
                     catch (OperationCanceledException) when (_disposed) { break; }
-                    catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
+                    catch (Exception ex) { if (!_disposed) AppLog.Write(ex); }
                     if (!IsCurrent(session, version)) continue;
                     image = ResolveArtwork(State, properties.Title, properties.Artist, properties.AlbumTitle, image);
                     if (!sameTrack) { _pendingSeek = null; LastSeekConfirmed = null; }
@@ -264,7 +264,7 @@ internal sealed class MediaService : IDisposable
                 catch (OperationCanceledException) when (_disposed) { break; }
                 catch (Exception ex)
                 {
-                    if (!_disposed) AppSettings.Log(ex);
+                    if (!_disposed) AppLog.Write(ex);
                     if (IsCurrent(session, version) && !_metadataReady) { State = new(); _position = TimeSpan.Zero; Changed?.Invoke(); }
                 }
             }
@@ -300,7 +300,7 @@ internal sealed class MediaService : IDisposable
             else if (action == "next") await session.TrySkipNextAsync();
             else if (action == "previous") await session.TrySkipPreviousAsync();
         }
-        catch (Exception ex) { if (!_disposed) AppSettings.Log(ex); }
+        catch (Exception ex) { if (!_disposed) AppLog.Write(ex); }
     }
     public bool? LastSeekSucceeded { get; private set; }
     public async Task<bool> SeekAsync(double seconds)
@@ -329,7 +329,7 @@ internal sealed class MediaService : IDisposable
             }
             return succeeded;
         }
-        catch (Exception ex) { if (Current()) LastSeekSucceeded = false; if (!_disposed) AppSettings.Log(ex); return false; }
+        catch (Exception ex) { if (Current()) LastSeekSucceeded = false; if (!_disposed) AppLog.Write(ex); return false; }
         finally { _seekGate.Release(); }
     }
     private void Unsubscribe(GlobalSystemMediaTransportControlsSession session)

@@ -36,6 +36,8 @@ if (Test-Path -LiteralPath $publish) {
 }
 & dotnet publish (Join-Path $project 'QuietIsland.csproj') -c Release -r win-x64 --self-contained true -o $publish "-p:Version=$Version" '-p:PublishSingleFile=false' '-p:PublishTrimmed=false'
 if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
+$scripts = @(Get-ChildItem -LiteralPath $publish -Recurse -File | Where-Object Extension -in '.ps1', '.psm1', '.bat', '.cmd')
+if ($scripts.Count) { throw 'User distributions must not contain developer scripts.' }
 
 $licenses = Join-Path $publish 'Licenses'
 New-Item -ItemType Directory -Path $licenses -Force | Out-Null

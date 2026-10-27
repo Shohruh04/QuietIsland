@@ -28,6 +28,9 @@ jobs:
       - name: Build installer and portable archive
         shell: pwsh
         run: ./scripts/Build-Installer.ps1
+      - name: Run unit tests
+        shell: pwsh
+        run: dotnet test Tests/QuietIsland.Tests.csproj -c Release --logger "console;verbosity=minimal"
       - uses: actions/upload-artifact@v4
         with:
           name: QuietIsland-windows-x64

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 — 2026-10-27
+
+- Separate presentation state, tray menus, taskbar coordination and infrastructure services.
+- Preserve settings, startup, IPC and installer compatibility; build scripts remain developer-only.
+- Add isolated MSTest coverage alongside native self-tests.
+- Snap dragging to safe left/right edges and show the horizontal cursor only at the border.
+- Scroll overflowing titles and details; stop text animations while hidden or when text fits.
+- Exclude bundled license documents from GitHub source-language statistics without removing notices.
+
 ## 1.1.0 — 2026-10-26
 
 - Self-contained Windows x64 installer and portable ZIP; .NET is bundled.
