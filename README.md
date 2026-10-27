@@ -1,81 +1,39 @@
 # QuietIsland
 
-<p align="center"><img src="Assets/icon.png" alt="QuietIsland" width="96"></p>
-<p align="center"><strong>Music, album artwork, and lyrics in your Windows taskbar.</strong></p>
+<p align="center"><img src="Assets/icon.png" alt="QuietIsland" width="80"></p>
 
-<p align="center">
-  <a href="https://github.com/Shohruh04/QuietIsland/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Shohruh04/QuietIsland"></a>
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-green"></a>
-</p>
+Music, album artwork, and synchronized lyrics in your Windows 11 x64 taskbar.
 
-## Download
+**[Download the latest release](https://github.com/Shohruh04/QuietIsland/releases/latest)**
 
-**[Download the latest Windows x64 release](https://github.com/Shohruh04/QuietIsland/releases/latest)**
-
-- **Setup EXE:** recommended; includes .NET and an uninstaller. No administrator rights required.
-- **Portable ZIP:** extract all files, then run `QuietIsland.exe`.
-- SHA-256 checksums are included with each release.
-
-Designed for Windows 11 x64. Uninstall through **Settings → Apps → Installed apps** or `unins000.exe`. Settings and lyrics cache are preserved.
+Choose **Setup EXE** for installation and an uninstaller, or extract the **Portable ZIP** and run `QuietIsland.exe`. .NET is bundled; PowerShell and Windhawk are not required. Uninstall preserves settings and lyrics cache.
 
 ## Features
 
-- Album artwork, playback controls, click/drag seeking, and mouse-wheel volume.
-- Synchronized lyrics from LRCLIB, local `.lrc` files, version selection, and timing adjustment.
-- Drag placement, monitor selection, custom width, transparency, and eight color themes.
-- Edge snapping when dragged left/right, plus scrolling text only when a title does not fit.
-- Safe placement around Start and app buttons, including a left-aligned taskbar.
+- Playback controls, seeking, volume, album artwork, and scrolling titles.
+- Online lyrics, local `.lrc` files, and timing adjustment.
+- Multiple monitors, edge snapping, custom width, transparency, and themes.
 - English/Russian UI, optional startup, and a focus timer.
-- Automatically hides when no media session exists; paused tracks remain visible.
+- Hides automatically when no media session exists.
 
-QuietIsland is a standalone C#/WPF app. It does not require Windhawk or inject into Explorer. Controls depend on what your player exposes through Windows Media Controls.
+Right-click the widget or tray icon for settings. Drag the artwork/title to move, use the top bar to seek, and scroll to adjust volume. `Ctrl+Alt+I` shows the widget; `Ctrl+Alt+D` toggles visibility. Player support depends on Windows Media Controls.
 
-## Controls
+## Development
 
-| Action | Control |
-| --- | --- |
-| Settings | Right-click the widget or tray icon |
-| Move | Drag the artwork or song title |
-| Seek | Click or drag the top progress bar |
-| Volume | Mouse wheel over the widget |
-| Lyrics / artist | Three-line button |
-| Show | `Ctrl+Alt+I` or double-click the tray icon |
-| Toggle visibility | `Ctrl+Alt+D` |
-
-Use the right-click menu to change language, monitor, size, position, theme, transparency, and startup. Secondary monitors need a Windows taskbar enabled. If no safe space is available, the widget hides.
-
-## Build
-
-Requires **.NET 10 SDK** on Windows. The source install script builds the app, creates a shortcut, and enables startup:
+Requires **.NET 10 SDK** on Windows; installer builds also need **Inno Setup 6.3+ or 7**.
 
 ```powershell
-git clone https://github.com/Shohruh04/QuietIsland.git
-cd QuietIsland
-.\scripts\Install.ps1
-```
-
-To build the self-contained installer and portable ZIP, also install **Inno Setup 6.3+ or 7**, then run:
-
-```powershell
+dotnet build -c Release
+dotnet test Tests/QuietIsland.Tests.csproj -c Release
 .\scripts\Build-Installer.ps1
 ```
 
-Output is written to `artifacts/`. The version comes from `QuietIsland.csproj`. Update it and [CHANGELOG.md](CHANGELOG.md), then push a matching `vX.Y.Z` tag to build and publish through GitHub Actions.
+Build scripts are developer-only. Output: `artifacts/`. See [changelog](CHANGELOG.md) for versions.
 
-PowerShell scripts are developer tools only. Released Setup and portable builds contain the runtime and run without PowerShell scripts on the user's PC.
+## Privacy and license
 
-## Architecture and tests
+Optional online lyrics send track metadata to [LRCLIB](https://lrclib.net/docs). Local data stays in `%LocalAppData%\QuietIsland`. No audio recording or analytics.
 
-One WPF app: `Presentation/` contains the view model, view and tray UI; `Infrastructure/` handles Windows/media integration, settings and diagnostics; `Models/` contains settings and timer state. Dependencies are composed at startup. Third-party license files are preserved and excluded from GitHub language statistics.
+[MIT](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Issues](https://github.com/Shohruh04/QuietIsland/issues)
 
-Run the isolated MSTest suite with `dotnet test Tests/QuietIsland.Tests.csproj -c Release`. Keep `QuietIsland.exe --self-test` for native window/taskbar and text-animation integration checks.
-
-## Privacy and contributing
-
-Online lyrics send the track title, artist, album, and duration to LRCLIB. You can disable this in the menu. Settings, cache, and diagnostics stay in `%LocalAppData%\QuietIsland`. No audio recording or analytics.
-
-[Issues](https://github.com/Shohruh04/QuietIsland/issues) and pull requests are welcome. Include your Windows version, player, monitor/DPI setup, and reproduction steps. Close the running app before using `QuietIsland.exe --self-test`.
-
-## License and credits
-
-[MIT](LICENSE). Layout inspired by [Dynamic Island for Windows](https://github.com/devcode90/Dynamic-Island-for-Windows), with adapted color palettes. Built with WPF, Windows Media Controls, [NAudio](https://github.com/naudio/NAudio), and [LRCLIB](https://lrclib.net/docs). See [third-party notices](THIRD_PARTY_NOTICES.md).
+Layout and colors inspired by [Dynamic Island for Windows](https://github.com/devcode90/Dynamic-Island-for-Windows).
