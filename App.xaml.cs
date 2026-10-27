@@ -23,7 +23,14 @@ public partial class App : Application
         System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         base.OnStartup(e);
         DispatcherUnhandledException += (_, a) => { AppLog.Write(a.Exception); a.Handled = true; };
-        if (e.Args.Contains("--self-test")) { await Verification.RunAsync(); Shutdown(); return; }
+        if (e.Args.Contains("--self-test"))
+        {
+            var exitCode = 1;
+            try { exitCode = await Verification.RunAsync(!e.Args.Contains("--stdout")) ? 0 : 1; }
+            catch (Exception exception) { AppLog.Write(exception); Console.Error.WriteLine(exception.Message); }
+            finally { Shutdown(exitCode); }
+            return;
+        }
         _instance = new Mutex(true, "Local\\" + InstanceName, out var first);
         var command = e.Args.FirstOrDefault(a => a.StartsWith("--")) ?? "--open";
         if (!first)

@@ -9,7 +9,7 @@ using System.Windows;
 namespace QuietIsland;
 internal static class Verification
 {
-    public static async Task RunAsync()
+    public static async Task<bool> RunAsync(bool writeReport = true)
     {
         var checks = new Dictionary<string, bool>();
         var island = new IslandWindow();
@@ -44,7 +44,13 @@ internal static class Verification
         marquee.Text = "Short"; marquee.IsActive = true; await Task.Delay(50);
         checks["FittingTextDoesNotAnimate"] = !marquee.IsScrolling;
         host.Close(); island.Close();
-        Directory.CreateDirectory(AppPaths.DataDirectory);
-        File.WriteAllText(Path.Combine(AppPaths.DataDirectory, "verification.json"), JsonSerializer.Serialize(checks, new JsonSerializerOptions { WriteIndented = true }));
+        var json = JsonSerializer.Serialize(checks, new JsonSerializerOptions { WriteIndented = true });
+        Console.WriteLine(json);
+        if (writeReport)
+        {
+            Directory.CreateDirectory(AppPaths.DataDirectory);
+            File.WriteAllText(Path.Combine(AppPaths.DataDirectory, "verification.json"), json);
+        }
+        return checks.Values.All(passed => passed);
     }
 }

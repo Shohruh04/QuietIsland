@@ -6,6 +6,7 @@
 - Ask before downloading and opening the installer; portable copies use the release page.
 - Verify installer identity, size and SHA-256, validate redirects, and support download cancellation.
 - Preserve the current startup preference and keep the widget running if the installer wizard is cancelled.
+- Add `--self-test --stdout` for native checks without a report file; always close self-tests and return a failing exit code on errors.
 
 ## 1.1.1 — 2026-10-27
 
