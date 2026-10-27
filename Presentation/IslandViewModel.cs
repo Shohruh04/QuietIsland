@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace QuietIsland;
@@ -19,6 +20,8 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     private double _previewPosition;
     private string _alert = "";
     private DateTimeOffset _alertUntil;
+    private ImageSource? _accentArtwork;
+    private int _accentGeneration;
 
     public AppSettings Settings { get; }
     public StartupRegistration Startup { get; }
@@ -56,6 +59,7 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     public string Detail { get; private set; } = "";
     public string DetailTooltip => Settings.ShowLyrics ? UiText.T(Lyrics.Document.Status) : Media.State.Artist;
     public ImageSource? Artwork => Media.State.Artwork;
+    public Color? AccentColor { get; private set; }
     public bool IsPlaying => Media.State.Playing;
     public bool HasArtwork => Artwork != null;
     public bool CanPlayPause => Media.State.Available && Media.State.CanPlayPause;
@@ -77,7 +81,32 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     private void OnMediaChanged()
     {
         Lyrics.Update(Media.State, Settings.OnlineLyrics);
+        _ = UpdateAccentAsync();
         Refresh(); MediaChanged?.Invoke();
+    }
+    private async Task UpdateAccentAsync()
+    {
+        var artwork = Settings.AlbumAccent ? Artwork : null;
+        if (ReferenceEquals(artwork, _accentArtwork)) return;
+        _accentArtwork = artwork;
+        var generation = ++_accentGeneration;
+        if (artwork is not BitmapSource bitmap)
+        {
+            AccentColor = null; Changed(nameof(AccentColor)); return;
+        }
+        try
+        {
+            // Media artwork is already frozen. Never pass a UI-owned bitmap to a worker.
+            if (!bitmap.IsFrozen) { bitmap = bitmap.CloneCurrentValue(); bitmap.Freeze(); }
+            var accent = await Task.Run(() => ArtworkAccent.Extract(bitmap));
+            if (_disposed || generation != _accentGeneration || !Settings.AlbumAccent) return;
+            AccentColor = accent; Changed(nameof(AccentColor));
+        }
+        catch (Exception exception)
+        {
+            AppLog.Write(exception);
+            if (!_disposed && generation == _accentGeneration) { AccentColor = null; Changed(nameof(AccentColor)); }
+        }
     }
     private void OnAudioChanged()
     {
@@ -148,6 +177,14 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     }
     public void SetTheme(string theme) { if (Array.Exists(ThemePalette.All, item => item.Id == theme)) { Settings.Theme = theme; SaveSettings(); } }
     public void SetTransparency(int percent) { Settings.BackgroundOpacityPercent = 100 - Math.Clamp(percent, 0, 90); SaveSettings(); }
+    public void SetPositionLocked(bool locked) { Settings.PositionLocked = locked; SaveSettings(); }
+    public void SetAlbumAccent(bool enabled)
+    {
+        Settings.AlbumAccent = enabled;
+        if (!enabled) { _accentGeneration++; _accentArtwork = null; AccentColor = null; Changed(nameof(AccentColor)); }
+        else _ = UpdateAccentAsync();
+        SaveSettings();
+    }
     public void ToggleLyrics()
     {
         Settings.ShowLyrics = !Settings.ShowLyrics; SaveSettings();
@@ -206,7 +243,7 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true; _clock.Stop(); _clock.Tick -= Tick;
+        _disposed = true; _accentGeneration++; _clock.Stop(); _clock.Tick -= Tick;
         Media.Changed -= OnMediaChanged; Lyrics.Changed -= Refresh; Audio.Changed -= OnAudioChanged;
         Media.Dispose(); Audio.Dispose(); Lyrics.Dispose();
     }

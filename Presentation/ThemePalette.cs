@@ -20,9 +20,11 @@ internal sealed record ThemePalette(string Id, string Name, string Background, s
     };
     private static Color Parse(string hex) => (Color)ColorConverter.ConvertFromString(hex);
     private static SolidColorBrush Brush(Color color) { var brush = new SolidColorBrush(color); brush.Freeze(); return brush; }
-    public void Apply(Window window, System.Windows.Controls.Border surface, int opacityPercent = 20)
+    public void Apply(Window window, System.Windows.Controls.Border surface, int opacityPercent = 20, Color? accent = null)
     {
         var bg = Parse(Background); var fg = Parse(Foreground); var border = Parse(Border);
+        var highlight = accent.HasValue ? ArtworkAccent.EnsureContrast(accent.Value, bg) : fg;
+        window.Resources["IslandAccent"] = Brush(highlight);
         window.Resources["IslandText"] = Brush(fg);
         window.Resources["IslandTooltipBackground"] = Brush(bg);
         window.Resources["IslandSecondary"] = Brush(Parse(Secondary));
@@ -36,9 +38,10 @@ internal sealed record ThemePalette(string Id, string Name, string Background, s
         var bottom = Color.FromArgb(alpha, bg.R, bg.G, bg.B);
         var fill = new LinearGradientBrush(top, bottom, new Point(0, 0), new Point(.4, 1)); fill.Freeze(); surface.Background = fill;
         var edge = new LinearGradientBrush(); edge.StartPoint = new Point(0, 0); edge.EndPoint = new Point(.6, 1);
-        edge.GradientStops.Add(new GradientStop(Color.FromArgb(110, fg.R, fg.G, fg.B), 0));
+        edge.GradientStops.Add(new GradientStop(Color.FromArgb(110, highlight.R, highlight.G, highlight.B), 0));
         edge.GradientStops.Add(new GradientStop(border, .45));
-        edge.GradientStops.Add(new GradientStop(Color.FromArgb(110, border.R, border.G, border.B), 1));
+        var lowerEdge = accent.HasValue ? highlight : border;
+        edge.GradientStops.Add(new GradientStop(Color.FromArgb(110, lowerEdge.R, lowerEdge.G, lowerEdge.B), 1));
         edge.Freeze(); surface.BorderBrush = edge;
     }
 }

@@ -17,6 +17,7 @@ public partial class IslandWindow : Window
     private readonly TrayMenuController _tray;
     private readonly TaskbarPlacementController _placement;
     private readonly UpdateController? _updates;
+    private SettingsWindow? _settingsWindow;
     private string _monitorDevice;
     private bool _closing, _moving, _moved, _seeking;
     private int _moveCursorX;
@@ -34,7 +35,7 @@ public partial class IslandWindow : Window
         InitializeComponent();
         _viewModel = viewModel; DataContext = viewModel; _updates = updates;
         _monitorDevice = viewModel.Settings.MonitorDevice;
-        _tray = new TrayMenuController(viewModel, OpenPanel, ToggleHidden, () => _ = ImportLyricsAsync(), CustomizeWidth, CustomizePosition, ExitApp, updates, () => Handle);
+        _tray = new TrayMenuController(viewModel, OpenPanel, OpenSettings, ToggleHidden, () => _ = ImportLyricsAsync(), CustomizeWidth, CustomizePosition, ExitApp, updates, () => Handle);
         _placement = new TaskbarPlacementController(this, viewModel.Settings, space,
             () => viewModel.Media.State.Available, () => _tray.IsMenuVisible, ApplyPlacement);
         _placement.OpenRequested += OpenPanel;
@@ -77,6 +78,10 @@ public partial class IslandWindow : Window
     private void OnSettingsChanged()
     {
         if (_closing) return;
+        if (_viewModel.Settings.PositionLocked)
+        {
+            _moving = false; Shell.ReleaseMouseCapture(); Shell.Cursor = Cursors.Arrow;
+        }
         ApplyTheme(); ApplyLanguage();
         if (_monitorDevice != _viewModel.Settings.MonitorDevice)
         { _monitorDevice = _viewModel.Settings.MonitorDevice; _placement.SetMonitor(_monitorDevice); }
@@ -88,6 +93,7 @@ public partial class IslandWindow : Window
     private void OnPresentationChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName is nameof(IslandViewModel.IsPlaying) or nameof(IslandViewModel.HasArtwork) or nameof(IslandViewModel.ShowLyrics)) UpdatePresentation();
+        if (args.PropertyName == nameof(IslandViewModel.AccentColor)) ApplyTheme();
     }
     private void UpdatePresentation()
     {
@@ -98,7 +104,7 @@ public partial class IslandWindow : Window
     private void ApplyTheme()
     {
         var palette = Array.Find(ThemePalette.All, item => item.Id == _viewModel.Settings.Theme) ?? ThemePalette.All[0];
-        palette.Apply(this, Shell, _viewModel.Settings.BackgroundOpacityPercent);
+        palette.Apply(this, Shell, _viewModel.Settings.BackgroundOpacityPercent, _viewModel.AccentColor);
     }
     private void ApplyLanguage()
     {
@@ -108,12 +114,24 @@ public partial class IslandWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(SeekSlider, UiText.T("Позиция воспроизведения"));
     }
     public void OpenPanel() { _viewModel.Settings.Hidden = false; _viewModel.SaveSettings(); _placement.Open(); }
+    private void OpenSettings()
+    {
+        if (_closing || _updates == null) return;
+        if (_settingsWindow == null)
+        {
+            _settingsWindow = new SettingsWindow(_viewModel, _updates, Handle);
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Show();
+        }
+        if (_settingsWindow.WindowState == WindowState.Minimized) _settingsWindow.WindowState = WindowState.Normal;
+        _settingsWindow.Activate();
+    }
     private void ToggleHidden() { _viewModel.Settings.Hidden = !_viewModel.Settings.Hidden; _viewModel.SaveSettings(); }
     private void OnMouseWheel(object sender, MouseWheelEventArgs args) { _viewModel.SetVolumeDelta(args.Delta > 0 ? .02f : -.02f); args.Handled = true; }
     private void ShowContextMenu(object sender, MouseButtonEventArgs args) { _tray.ShowContextMenu(); args.Handled = true; }
     private void MoveStart(object sender, MouseButtonEventArgs args)
     {
-        if (!_placement.HasSpace || args.OriginalSource is not DependencyObject element) return;
+        if (_viewModel.Settings.PositionLocked || !_placement.HasSpace || args.OriginalSource is not DependencyObject element) return;
         for (var node = element; node != null; node = node is Visual ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node))
             if (node is System.Windows.Controls.Primitives.ButtonBase or System.Windows.Controls.Slider) return;
         if (!NativeWindow.GetCursorPos(out var cursor) || !Shell.CaptureMouse()) return;
@@ -124,7 +142,7 @@ public partial class IslandWindow : Window
         if (!_moving)
         {
             var point = args.GetPosition(Shell);
-            Shell.Cursor = point.X <= 5 || point.X >= Shell.ActualWidth - 5 ? Cursors.SizeWE : Cursors.Arrow;
+            Shell.Cursor = !_viewModel.Settings.PositionLocked && (point.X <= 5 || point.X >= Shell.ActualWidth - 5) ? Cursors.SizeWE : Cursors.Arrow;
             return;
         }
         if (args.LeftButton != MouseButtonState.Pressed || !NativeWindow.GetCursorPos(out var cursor)) return;
@@ -192,6 +210,7 @@ public partial class IslandWindow : Window
             case "--export-preview": WindowDiagnostics.ExportPreview(Shell); break;
             case "--verify-media": _ = VerifyMediaAsync(); break;
             case "--check-updates": if (_updates != null) _ = _updates.CheckManuallyAsync(Handle); break;
+            case "--settings": OpenSettings(); break;
             default: if (!_viewModel.HandleCommand(command) && command is not ("--startup" or "--collapse")) OpenPanel(); break;
         }
     }
@@ -203,6 +222,7 @@ public partial class IslandWindow : Window
     {
         if (_closing) return;
         _closing = true;
+        _settingsWindow?.Close();
         SourceInitialized -= InitializeNative; Closed -= Cleanup; MouseWheel -= OnMouseWheel; MouseRightButtonUp -= ShowContextMenu;
         _viewModel.SettingsChanged -= OnSettingsChanged; _viewModel.MediaChanged -= OnMediaChanged; _viewModel.PropertyChanged -= OnPresentationChanged; _viewModel.NotificationRequested -= _tray.Notify;
         _placement.OpenRequested -= OpenPanel; _placement.HideRequested -= ToggleHidden; _placement.VisibilityChanged -= OnVisibilityChanged; _placement.SessionStateChanged -= _viewModel.SetSessionState;

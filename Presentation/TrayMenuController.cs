@@ -16,7 +16,7 @@ internal sealed class TrayMenuController : IDisposable
     private readonly Forms.ContextMenuStrip _menu = new();
     private sealed record MenuText(string Text, string Tooltip);
     private readonly ConditionalWeakTable<Forms.ToolStripItem, MenuText> _menuText = new();
-    private readonly Forms.ToolStripMenuItem _hiddenItem, _startupItem, _onlineItem, _lyricsItem, _volumeItem, _fullscreenItem;
+    private readonly Forms.ToolStripMenuItem _hiddenItem, _startupItem, _onlineItem, _lyricsItem, _volumeItem, _fullscreenItem, _positionLockedItem, _albumAccentItem;
     private readonly Forms.ToolStripMenuItem[] _placementItems;
     private bool _disposed;
     private readonly UpdateController? _updates;
@@ -26,7 +26,7 @@ internal sealed class TrayMenuController : IDisposable
     private LyricsService _lyrics => _viewModel.Lyrics;
     public bool IsMenuVisible => !_disposed && _menu.Visible;
 
-    public TrayMenuController(IslandViewModel viewModel, Action show, Action hideToggle,
+    public TrayMenuController(IslandViewModel viewModel, Action show, Action showSettings, Action hideToggle,
         Action importLyrics, Action customizeWidth, Action customizePosition, Action exit, UpdateController? updates = null, Func<IntPtr>? owner = null)
     {
         _viewModel = viewModel;
@@ -34,6 +34,8 @@ internal sealed class TrayMenuController : IDisposable
         _updates = updates;
         _menu.Items.Add("Показать виджет                  Ctrl+Alt+I", null, (_, _) => OnUi(_show));
         _hiddenItem = AddToggle("Скрыть                                 Ctrl+Alt+D", hideToggle);
+        _menu.Items.Add("Настройки…", null, (_, _) => OnUi(showSettings));
+        _positionLockedItem = AddToggle("Закрепить положение", () => _viewModel.SetPositionLocked(!_settings.PositionLocked));
         var positions = new Forms.ToolStripMenuItem("Расположение");
         var names = new[] { "Слева", "По центру", "Справа", "Автоматически: больше свободного места", "Своя позиция…" };
         var values = new[] { "left", "center", "right", "auto", "custom" };
@@ -84,6 +86,7 @@ internal sealed class TrayMenuController : IDisposable
         }
         themes.DropDownOpening += (_, _) => { foreach (Forms.ToolStripMenuItem item in themes.DropDownItems) item.Checked = (string?)item.Tag == _settings.Theme; };
         _menu.Items.Add(themes);
+        _albumAccentItem = AddToggle("Использовать цвет обложки", () => _viewModel.SetAlbumAccent(!_settings.AlbumAccent));
         var transparency = new Forms.ToolStripMenuItem("Прозрачность фона");
         foreach (var percent in new[] { 0, 10, 25, 40, 60, 80, 90 })
         {
@@ -230,6 +233,8 @@ internal sealed class TrayMenuController : IDisposable
     private void UpdateMenu()
     {
         _hiddenItem.Checked = _settings.Hidden;
+        _positionLockedItem.Checked = _settings.PositionLocked;
+        _albumAccentItem.Checked = _settings.AlbumAccent;
         _startupItem.Checked = _viewModel.Startup.IsEnabled;
         _onlineItem.Checked = _settings.OnlineLyrics;
         _lyricsItem.Checked = _settings.ShowLyrics;

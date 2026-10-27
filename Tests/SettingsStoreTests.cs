@@ -35,6 +35,7 @@ public sealed class SettingsStoreTests
         Assert.IsTrue(settings.TaskbarPlacement && settings.VolumeAlerts && settings.OnlineLyrics && settings.ShowLyrics && settings.HideInFullscreen);
         Assert.IsFalse(settings.Hidden);
         Assert.IsTrue(settings.AutoCheckUpdates);
+        Assert.IsFalse(settings.PositionLocked || settings.AlbumAccent);
     }
 
     [TestMethod]
@@ -49,6 +50,7 @@ public sealed class SettingsStoreTests
         Assert.IsTrue(settings.Hidden);
         Assert.IsTrue(settings.OnlineLyrics && settings.ShowLyrics && settings.AutoCheckUpdates);
         Assert.AreEqual(20, settings.BackgroundOpacityPercent);
+        Assert.IsFalse(settings.PositionLocked || settings.AlbumAccent);
     }
 
     [TestMethod]
@@ -69,12 +71,13 @@ public sealed class SettingsStoreTests
             Hidden = true, TaskbarPlacement = false, VolumeAlerts = false, OnlineLyrics = false,
             ShowLyrics = false, HideInFullscreen = false, Placement = "custom", LyricsOffsetMs = -700,
             Theme = "pearl", BackgroundOpacityPercent = 73, MonitorDevice = @"\\.\DISPLAY2",
-            Language = "en", WidthDip = 760, PositionFraction = .23, AutoCheckUpdates = false
+            Language = "en", WidthDip = 760, PositionFraction = .23, AutoCheckUpdates = false,
+            PositionLocked = true, AlbumAccent = true
         };
         _store.Save(settings);
         Assert.AreEqual(JsonSerializer.Serialize(settings), JsonSerializer.Serialize(_store.Load()));
         using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_directory, "settings.json")));
-        Assert.AreEqual(15, document.RootElement.GetPropertyCount());
+        Assert.AreEqual(17, document.RootElement.GetPropertyCount());
     }
 
     [TestMethod]

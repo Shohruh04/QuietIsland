@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
@@ -17,7 +16,6 @@ internal sealed class TaskbarPlacementController : IDisposable
     private readonly Func<bool> _mediaAvailable, _menuOpen;
     private readonly Action<Rect> _applyBounds;
     private readonly DispatcherTimer _pulse;
-    private readonly HashSet<IntPtr> _seenWindows = new();
     private HwndSource? _source;
     private NativeWindow.ForegroundWatch? _watch;
     private NativeWindow.Rect _bar, _monitor;
@@ -40,6 +38,8 @@ internal sealed class TaskbarPlacementController : IDisposable
     public int TaskbarCoverageRepairs { get; private set; }
     public double LongestPulseMs { get; private set; }
     public double LastTaskbarScanMs => _space.LastScanMilliseconds;
+    internal string TaskbarScanError => _space.LastScanError;
+    internal int TaskbarRawButtonCount => _space.RawButtonCount;
     public double? OccupiedRight => _space.OccupiedRight;
     public event Action? OpenRequested;
     public event Action? HideRequested;
@@ -135,7 +135,9 @@ internal sealed class TaskbarPlacementController : IDisposable
         if (_disposed || _settings.Hidden) return;
         var start = Stopwatch.GetTimestamp();
         RefreshForeground();
-        if (_ticks++ % 60 == 0) _ = _space.RefreshAsync();
+        // A shell flyout can temporarily remove taskbar controls from UIA. Keep a
+        // throttled recovery scan alive after its short retry budget is exhausted.
+        if (_ticks++ % 60 == 0 || !_space.LastScanSucceeded || !HasSpace) _ = _space.RefreshAsync();
         LongestPulseMs = Math.Max(LongestPulseMs, Stopwatch.GetElapsedTime(start).TotalMilliseconds);
     }
     private void RefreshForeground()
@@ -145,8 +147,10 @@ internal sealed class TaskbarPlacementController : IDisposable
         if (foreground != _foreground)
         {
             _foreground = foreground;
-            if (_seenWindows.Count > 128) _seenWindows.Clear();
-            if (_seenWindows.Add(foreground)) _ = _space.RefreshAsync();
+            // Returning from Start/Quick Settings normally activates an HWND we
+            // have already seen. It must still recover an invalid taskbar scan.
+            if (!_settings.Hidden && !_locked && !_suspended)
+                _ = _space.RefreshAsync(!_space.LastScanSucceeded || !HasSpace);
             NativeWindow.RaiseWithoutFocus(Handle);
         }
         Fullscreen = _settings.HideInFullscreen && NativeWindow.IsFullscreen(foreground, Handle, NativeWindow.MonitorFromWindow(Handle, 1));
@@ -196,7 +200,7 @@ internal sealed class TaskbarPlacementController : IDisposable
     }
     public bool TryMove(double desiredLeft)
     {
-        if (_disposed || !HasSpace || !double.IsFinite(desiredLeft)) return false;
+        if (_disposed || _settings.PositionLocked || !HasSpace || !double.IsFinite(desiredLeft)) return false;
         // Pointer updates must not send synchronous shell messages to Explorer.
         // UIA/native events invalidate the cache; GetWindowRect cheaply catches a moved/replaced bar.
         if (!_space.Matches(TaskbarHandle, _bar, _trayLeft) || !NativeWindow.GetWindowRect(TaskbarHandle, out var current) ||

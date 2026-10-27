@@ -50,7 +50,26 @@ internal static class UiText
         ["Не удалось загрузить текст песни"] = "Could not load lyrics", ["Сервис текста занят. Повторите позже."] = "Lyrics service busy. Try again later.",
         ["Текст этой песни не найден"] = "No lyrics found for this song", ["Выберите версию текста в меню"] = "Choose a lyrics version in the menu",
         ["Инструментальная композиция"] = "Instrumental", ["Синхронный текст · LRCLIB"] = "Synchronized lyrics · LRCLIB",
-        ["Текст без временных меток"] = "Lyrics without timestamps", ["Медиа"] = "Media"
+        ["Текст без временных меток"] = "Lyrics without timestamps", ["Медиа"] = "Media",
+        ["Настройки"] = "Settings", ["Настройки…"] = "Settings…", ["Закрыть"] = "Close",
+        ["Закрепить положение"] = "Lock position", ["Цвет обложки"] = "Album color",
+        ["Использовать цвет обложки"] = "Use album color",
+        ["Ваш маленький остров спокойствия."] = "Your little island of calm.",
+        ["Внешний вид"] = "Appearance", ["Поведение"] = "Behavior", ["ПРЕДПРОСМОТР"] = "LIVE PREVIEW",
+        ["Изменения сразу видны в виджете. Предпросмотр масштабируется по ширине."] = "Changes appear on your island instantly. Preview scales to fit.",
+        ["Цвет текущей обложки в рамке и полосе прогресса."] = "Use the artwork color for the border and progress bar.",
+        ["Непрозрачный"] = "Opaque", ["Прозрачный"] = "Transparent",
+        ["Положение на панели задач"] = "Taskbar position", ["Своя позиция"] = "Custom position",
+        ["Защитить виджет от случайного перемещения мышью."] = "Keep your island in place while using its controls.",
+        ["Отключённый монитор"] = "Disconnected monitor", ["Текст песни"] = "Lyrics", ["Общие"] = "General",
+        ["Положительный сдвиг показывает строки раньше."] = "Positive offsets show lyrics earlier.", ["с"] = "s",
+        ["Версия"] = "Version", ["Обновления"] = "Updates", ["Проект"] = "Project",
+        ["Музыка, текст песни и немного спокойствия — прямо на панели задач."] = "Music, lyrics, and a little calm — right on your taskbar.",
+        ["Нативное приложение для Windows. Без лишних окон, постоянных анимаций и отвлекающих элементов."] = "A native Windows app that keeps things light, quiet, and close at hand.",
+        ["Тихая проверка раз в день. Установка — только с вашего согласия."] = "A quiet check once a day. Installation always asks you first.",
+        ["Проверяйте новые версии здесь или включите автоматическую проверку."] = "Check for a new version here, or enable automatic checks.",
+        ["Показать виджет: Ctrl+Alt+I · Скрыть: Ctrl+Alt+D"] = "Show island: Ctrl+Alt+I · Toggle visibility: Ctrl+Alt+D",
+        ["Изменения сохраняются автоматически"] = "Changes are saved automatically"
     };
     public static string T(string text) => Translate(text, Language);
     internal static string Translate(string text, string language)

@@ -17,13 +17,21 @@ Music, album artwork, and synchronized lyrics in your Windows 11 x64 taskbar.
 - Playback controls, seeking, volume, album artwork, and scrolling titles.
 - Online lyrics, local `.lrc` files, and timing adjustment.
 - Multiple monitors, edge snapping, custom width, transparency, and themes.
+- Glass-style settings with live preview, position locking, and optional artwork accent colors.
 - English/Russian UI, optional startup, and a focus timer.
 - Daily update checks with confirmation before downloading/installing; disable them in the tray menu.
 - Hides automatically when no media session exists.
 
-Right-click the widget or tray icon for settings. Drag the artwork/title to move, use the top bar to seek, and scroll to adjust volume. `Ctrl+Alt+I` shows the widget; `Ctrl+Alt+D` toggles visibility. Player support depends on Windows Media Controls.
+Right-click the widget or tray icon → **Settings**. Drag the artwork/title to move (unless locked), use the top bar to seek, and scroll to adjust volume. `Ctrl+Alt+I` shows the widget; `Ctrl+Alt+D` toggles visibility. Player support depends on Windows Media Controls.
 
 ![Demo lyrics preview and an overview of appearance, placement, lyrics timing, and controls](docs/images/lyrics-and-settings.png)
+
+<details>
+<summary>Settings preview</summary>
+
+![Settings window with theme choices, optional album color, transparency and width controls](docs/images/settings-preview.png)
+
+</details>
 
 ## Development
 

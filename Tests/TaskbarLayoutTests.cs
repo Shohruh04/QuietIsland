@@ -104,6 +104,66 @@ public sealed class TaskbarLayoutTests
     }
 
     [TestMethod]
+    public void EmptyShellScanExpiresAndFreshControlsRestoreSafePlacement()
+    {
+        using var scan = new TaskbarSpace();
+        var time = DateTimeOffset.UnixEpoch;
+        var handle = new IntPtr(1);
+        scan.AcceptScan(handle, Bar, 1700, new[] { new Rect(700, 1056, 550, 24) }, time);
+        scan.AcceptScan(handle, Bar, 1700, Array.Empty<Rect>(), time.AddSeconds(1));
+        Assert.IsTrue(scan.Valid);
+        Assert.IsFalse(scan.LastScanSucceeded);
+        scan.AcceptScan(handle, Bar, 1700, Array.Empty<Rect>(), time.AddSeconds(3));
+        Assert.IsFalse(scan.Matches(handle, Bar, 1700));
+        Assert.AreEqual(0, scan.Buttons.Count);
+
+        // New apps may appear while the shell is open. Recovery must use their
+        // current bounds, not resume the now unsafe pre-flyout position.
+        var currentButtons = new[] { new Rect(0, 1056, 650, 24), new Rect(1000, 1056, 250, 24) };
+        scan.AcceptScan(handle, Bar, 1700, currentButtons, time.AddSeconds(4));
+        Assert.IsTrue(scan.Matches(handle, Bar, 1700));
+        Assert.IsTrue(scan.LastScanSucceeded);
+        var position = TaskbarLayout.Choose(Bar, 1700, scan.Buttons, 1, "left");
+        Assert.IsTrue(position.HasValue);
+        Assert.IsTrue(currentButtons.All(button => !button.IntersectsWith(position.Value)));
+        Assert.AreEqual((double)Bar.Top, position.Value.Top);
+        Assert.AreEqual((double)Bar.Bottom, position.Value.Bottom);
+    }
+
+    [TestMethod]
+    [DataRow("left")]
+    [DataRow("center")]
+    [DataRow("right")]
+    [DataRow("auto")]
+    [DataRow("custom")]
+    public void EveryPlacementStaysInsideTaskbar(string mode)
+    {
+        var position = TaskbarLayout.Choose(Bar, 1700, new[] { new Rect(700, 1056, 550, 24) }, 1, mode);
+        Assert.IsTrue(position.HasValue);
+        Assert.IsTrue(new Rect(Bar.Left, Bar.Top, Bar.Width, Bar.Height).Contains(position.Value));
+    }
+
+    [TestMethod]
+    public void NormalRecoveryKeepsFiveSecondSpacingAfterSlowScan()
+    {
+        var started = DateTimeOffset.UnixEpoch;
+        var completed = started.AddMilliseconds(1200);
+        Assert.AreEqual(TimeSpan.FromMilliseconds(3800), TaskbarSpace.RefreshDelay(false, started, completed));
+        Assert.IsTrue(TaskbarSpace.RefreshDelay(true, started, completed) <= TimeSpan.Zero);
+    }
+
+    [TestMethod]
+    public void DeferredNormalRefreshRechecksLatestScanTime()
+    {
+        // A forced scan ran just before an older normal timer became due.
+        // The normal timer must not cause another scan after only 200 ms.
+        var now = DateTimeOffset.UnixEpoch.AddSeconds(5);
+        var lastScan = now.AddMilliseconds(-200);
+        Assert.AreEqual(TimeSpan.FromMilliseconds(4800), TaskbarSpace.RefreshDelay(false, lastScan, now));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(300), TaskbarSpace.RefreshDelay(true, lastScan, now));
+    }
+
+    [TestMethod]
     public void ExplorerReplacementInvalidatesCachedPlacement()
     {
         using var scan = new TaskbarSpace();

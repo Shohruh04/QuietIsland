@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 — 2026-10-27
+
+- Add an English/Russian glass-style Settings window with appearance preview and grouped controls.
+- Add an optional artwork accent for the seek bar and border, calculated only when artwork changes.
+- Add position locking to prevent accidental dragging while keeping playback controls interactive.
+- Retry failed taskbar discovery after returning from Start and shell panels; preserve throttled requests so the widget can recover after temporary UI Automation failures.
+- Keep the widget inside the taskbar and preserve saved preferences during installer updates.
+
 ## 1.1.2 — 2026-10-27
 
 - Default to English, 80% background transparency and 360 DIP width for new settings.

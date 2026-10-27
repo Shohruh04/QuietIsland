@@ -9,6 +9,8 @@ internal sealed class AppSettings
     public bool ShowLyrics { get; set; } = true;
     public bool HideInFullscreen { get; set; } = true;
     public bool AutoCheckUpdates { get; set; } = true;
+    public bool PositionLocked { get; set; }
+    public bool AlbumAccent { get; set; }
     public string Placement { get; set; } = "left";
     public int LyricsOffsetMs { get; set; }
     public string Theme { get; set; } = "obsidian";

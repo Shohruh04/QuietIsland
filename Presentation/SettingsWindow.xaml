@@ -1,0 +1,328 @@
+<Window x:Class="QuietIsland.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="QuietIsland · Settings" Width="810" Height="790" MinWidth="660" MinHeight="520"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
+        Background="#141B26" Foreground="#F3F6FC" FontFamily="Segoe UI" FontSize="13"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" PreviewKeyDown="WindowKeyDown">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="66" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Window.Resources>
+        <SolidColorBrush x:Key="TextMuted" Color="#AAB7CA"/>
+        <SolidColorBrush x:Key="SettingsAccent" Color="#9ECFFF"/>
+        <Style x:Key="SectionHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
+        </Style>
+        <Style x:Key="Description" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/><Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="LineHeight" Value="18"/>
+        </Style>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/><Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,14"/><Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#2E9DB6D6"/><Setter Property="Background" Value="#B81B2636"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="#F3F6FC"/><Setter Property="Background" Value="#33465D"/>
+            <Setter Property="BorderBrush" Value="#59708C"/><Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,9"/><Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Border x:Name="Surface" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#455D79"/></Trigger>
+                    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Background" Value="#263B54"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{StaticResource SettingsAccent}"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#F3F6FC"/><Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                <Grid Background="Transparent">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <ContentPresenter VerticalAlignment="Center" Margin="0,0,18,0"/>
+                    <Border x:Name="ToggleTrack" Grid.Column="1" Width="40" Height="23" CornerRadius="11.5" Background="#425069" BorderBrush="#65748A" BorderThickness="1" VerticalAlignment="Center">
+                        <Ellipse x:Name="ToggleThumb" Width="15" Height="15" Fill="#E4EBF5" HorizontalAlignment="Left" Margin="3,0"/>
+                    </Border>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="ToggleTrack" Property="Background" Value="#82BCF6"/><Setter TargetName="ToggleTrack" Property="BorderBrush" Value="#A6D6FF"/><Setter TargetName="ToggleThumb" Property="HorizontalAlignment" Value="Right"/><Setter TargetName="ToggleThumb" Property="Fill" Value="#10233A"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ToggleTrack" Property="BorderBrush" Value="White"/><Setter TargetName="ToggleTrack" Property="BorderThickness" Value="2"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ToggleTrack" Property="Opacity" Value="0.82"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#F3F6FC"/><Setter Property="Padding" Value="12,9"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+                <Border x:Name="ItemSurface" CornerRadius="5" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#3C526F"/></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#354B66"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#F3F6FC"/><Setter Property="Background" Value="#263448"/>
+            <Setter Property="BorderBrush" Value="#526780"/><Setter Property="MinHeight" Value="38"/>
+            <Setter Property="Padding" Value="12,8"/><Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+                <Grid>
+                    <ToggleButton x:Name="DropdownToggle" Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" ClickMode="Press">
+                        <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="ComboSurface" Background="#263448" BorderBrush="#526780" BorderThickness="1" CornerRadius="7">
+                                <Path Data="M 0,0 L 4,4 L 8,0" Stroke="#BDCEE2" StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                            </Border>
+                            <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboSurface" Property="Background" Value="#30435D"/></Trigger></ControlTemplate.Triggers>
+                        </ControlTemplate></ToggleButton.Template>
+                    </ToggleButton>
+                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" IsHitTestVisible="False" Margin="12,8,36,8" VerticalAlignment="Center"/>
+                    <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                        <Border Background="#1C293B" BorderBrush="#6B819E" BorderThickness="1" CornerRadius="8" Padding="4" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" Margin="0,4,0,0">
+                            <ScrollViewer MaxHeight="300"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>
+                        </Border>
+                    </Popup>
+                    <Border x:Name="ComboFocus" IsHitTestVisible="False" CornerRadius="7" BorderThickness="1" BorderBrush="Transparent"/>
+                </Grid>
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ComboFocus" Property="BorderBrush" Value="{StaticResource SettingsAccent}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="Slider">
+            <Setter Property="Height" Value="30"/><Setter Property="IsSnapToTickEnabled" Value="True"/><Setter Property="TickFrequency" Value="1"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+                <Grid Margin="0,2" Background="Transparent">
+                    <Track x:Name="PART_Track" VerticalAlignment="Center">
+                        <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="4" CornerRadius="2" Background="#96C7FA"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                        <Track.Thumb><Thumb Width="18" Height="18"><Thumb.Template><ControlTemplate TargetType="Thumb">
+                            <Ellipse x:Name="Knob" Fill="#E6F2FF" Stroke="#9ABEE7" StrokeThickness="1"/>
+                            <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Knob" Property="Fill" Value="White"/></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="Knob" Property="Stroke" Value="White"/><Setter TargetName="Knob" Property="StrokeThickness" Value="2"/></Trigger></ControlTemplate.Triggers>
+                        </ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                        <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="4" CornerRadius="2" Background="#425571"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                    </Track>
+                    <Border x:Name="SliderFocus" BorderThickness="1" BorderBrush="Transparent" CornerRadius="5" IsHitTestVisible="False" Margin="-3,-1"/>
+                </Grid>
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SliderFocus" Property="BorderBrush" Value="{StaticResource SettingsAccent}"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="12"/><Setter Property="MinWidth" Value="12"/>
+            <Setter Property="Background" Value="Transparent"/><Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+                <Grid Background="{TemplateBinding Background}">
+                    <Track x:Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                           Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                           ViewportSize="{TemplateBinding ViewportSize}" Orientation="{TemplateBinding Orientation}" IsDirectionReversed="True">
+                        <Track.DecreaseRepeatButton><RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Focusable="False">
+                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+                        </RepeatButton></Track.DecreaseRepeatButton>
+                        <Track.Thumb><Thumb MinHeight="28">
+                            <Thumb.Template><ControlTemplate TargetType="Thumb">
+                                <Border x:Name="ScrollThumb" Background="#526A86" CornerRadius="3" Margin="3,0"/>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="#7C9BBB"/></Trigger>
+                                    <Trigger Property="IsDragging" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="#9ECFFF"/></Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate></Thumb.Template>
+                        </Thumb></Track.Thumb>
+                        <Track.IncreaseRepeatButton><RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Focusable="False">
+                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+                        </RepeatButton></Track.IncreaseRepeatButton>
+                    </Track>
+                </Grid>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#AEBDD0"/><Setter Property="Padding" Value="20,11"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">
+                <Border x:Name="TabSurface" CornerRadius="8" BorderBrush="Transparent" BorderThickness="1" Background="Transparent" Padding="{TemplateBinding Padding}" Margin="0,0,6,0">
+                    <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="#F3F7FF"/><Setter TargetName="TabSurface" Property="Background" Value="#344A65"/><Setter TargetName="TabSurface" Property="BorderBrush" Value="#59718F"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabSurface" Property="Background" Value="#304158"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="TabSurface" Property="BorderBrush" Value="{StaticResource SettingsAccent}"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="ThemeChoice" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#D6E1F0"/><Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="151"/><Setter Property="Margin" Value="0,0,10,10"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+                <Border x:Name="ThemeSurface" Padding="10" Background="#142030" BorderBrush="#3A4C64" BorderThickness="1" CornerRadius="8"><ContentPresenter/></Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="ThemeSurface" Property="Background" Value="#30445E"/><Setter TargetName="ThemeSurface" Property="BorderBrush" Value="#9ECFFF"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThemeSurface" Property="BorderBrush" Value="#B7CEE8"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ThemeSurface" Property="BorderThickness" Value="2"/><Setter TargetName="ThemeSurface" Property="Padding" Value="9"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Border CornerRadius="15" BorderThickness="1" Padding="1">
+        <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0.75,1"><GradientStop Color="#2B3C52"/><GradientStop Color="#192333" Offset="0.32"/><GradientStop Color="#121A26" Offset="1"/></LinearGradientBrush></Border.Background>
+        <Border.BorderBrush><LinearGradientBrush StartPoint="0,0" EndPoint="0.75,1"><GradientStop Color="#9DB7D5"/><GradientStop Color="#3D506C" Offset="0.4"/><GradientStop Color="#58738F" Offset="1"/></LinearGradientBrush></Border.BorderBrush>
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="74"/><RowDefinition Height="*"/><RowDefinition Height="42"/></Grid.RowDefinitions>
+            <Grid Margin="24,0,16,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Border Width="38" Height="38" CornerRadius="10" Background="#304C68" BorderBrush="#6897BC" BorderThickness="1" VerticalAlignment="Center">
+                    <Image x:Name="AppIcon" Width="28" Height="28"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <TextBlock Text="QuietIsland" FontWeight="SemiBold" FontSize="19"/>
+                    <TextBlock Tag="Ваш маленький остров спокойствия." Style="{StaticResource Description}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <Button x:Name="CloseButton" Grid.Column="2" Width="34" Height="34" Padding="10" Background="Transparent" BorderBrush="Transparent" Click="CloseClick" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" Stroke="#C8D5E7" StrokeThickness="1.4"/>
+                </Button>
+            </Grid>
+            <TabControl Grid.Row="1" Margin="24,0,18,0" Background="Transparent" BorderThickness="0" Foreground="#F3F6FC">
+                <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <TabPanel IsItemsHost="True" Margin="0,0,6,20"/>
+                    <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" ContentSource="SelectedContent"/>
+                </Grid></ControlTemplate></TabControl.Template>
+                <TabItem><TabItem.Header><TextBlock Tag="Внешний вид"/></TabItem.Header>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,10" PanningMode="VerticalOnly">
+                        <StackPanel>
+                            <Border CornerRadius="12" BorderBrush="#4C7597BC" BorderThickness="1" Margin="0,0,0,18" Padding="20,16">
+                                <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#456A85"/><GradientStop Color="#273E56" Offset="0.48"/><GradientStop Color="#494168" Offset="1"/></LinearGradientBrush></Border.Background>
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="80"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Tag="ПРЕДПРОСМОТР" FontSize="10" FontWeight="SemiBold" Foreground="#D0DDEC"/>
+                                    <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,12">
+                                        <Border x:Name="PreviewIsland" Width="360" Height="48" CornerRadius="6" BorderThickness="1" Padding="9,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Border Width="34" Height="34" CornerRadius="4" Background="{DynamicResource IslandArtBackground}">
+                                                    <Grid><TextBlock Text="♪" Foreground="{DynamicResource IslandText}" FontSize="21" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image Source="{Binding Artwork, Mode=OneWay}" Stretch="UniformToFill"><Image.Clip><RectangleGeometry Rect="0,0,34,34" RadiusX="4" RadiusY="4"/></Image.Clip></Image></Grid>
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource IslandText}" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Detail, Mode=OneWay}" FontSize="10" Foreground="{DynamicResource IslandSecondary}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Path Data="M 0,0 L 0,10 M 9,0 L 2,5 L 9,10 Z" Stroke="{DynamicResource IslandText}" Fill="{DynamicResource IslandText}" Margin="0,0,12,0"/>
+                                                    <Border Background="{DynamicResource IslandControl}" CornerRadius="5" Width="27" Height="27">
+                                                        <Path Fill="{DynamicResource IslandControlText}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2,0,0,0">
+                                                            <Path.Style><Style TargetType="Path">
+                                                                <Setter Property="Data" Value="M 0,0 L 8,5 L 0,10 Z"/>
+                                                                <Style.Triggers><DataTrigger Binding="{Binding IsPlaying, Mode=OneWay}" Value="True"><Setter Property="Data" Value="M 0,0 L 3,0 L 3,10 L 0,10 Z M 6,0 L 9,0 L 9,10 L 6,10 Z"/></DataTrigger></Style.Triggers>
+                                                            </Style></Path.Style>
+                                                        </Path>
+                                                    </Border>
+                                                    <Path Data="M 9,0 L 9,10 M 0,0 L 7,5 L 0,10 Z" Stroke="{DynamicResource IslandText}" Fill="{DynamicResource IslandText}" Margin="12,0,0,0"/>
+                                                </StackPanel>
+                                                <ProgressBar Grid.ColumnSpan="3" Minimum="0" Maximum="{Binding Duration, Mode=OneWay}" Value="{Binding Position, Mode=OneWay}"
+                                                             Height="2" Margin="0,-5,0,0" VerticalAlignment="Top" IsHitTestVisible="False" Focusable="False"
+                                                             Foreground="{DynamicResource IslandAccent}" Background="{DynamicResource IslandTrackBackground}">
+                                                    <ProgressBar.Template><ControlTemplate TargetType="ProgressBar">
+                                                        <Grid x:Name="PART_Track" Background="{TemplateBinding Background}" ClipToBounds="True">
+                                                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}"/>
+                                                        </Grid>
+                                                    </ControlTemplate></ProgressBar.Template>
+                                                </ProgressBar>
+                                            </Grid>
+                                        </Border>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="2" Tag="Изменения сразу видны в виджете. Предпросмотр масштабируется по ширине." FontSize="11" Foreground="#D0DDEC" TextWrapping="Wrap"/>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <TextBlock Tag="Цветовая тема" Style="{StaticResource SectionHeading}"/>
+                                <WrapPanel x:Name="ThemeChoices" Margin="0,0,-10,2"/>
+                                <CheckBox x:Name="AlbumAccentToggle" Click="AlbumAccentClick">
+                                    <StackPanel><TextBlock Tag="Использовать цвет обложки" TextWrapping="Wrap"/><TextBlock Tag="Цвет текущей обложки в рамке и полосе прогресса." Style="{StaticResource Description}"/></StackPanel>
+                                </CheckBox>
+                            </StackPanel></Border>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <Grid><TextBlock Tag="Прозрачность фона"/><TextBlock x:Name="TransparencyValue" HorizontalAlignment="Right" Foreground="{StaticResource SettingsAccent}" FontWeight="SemiBold"/></Grid>
+                                <Slider x:Name="TransparencySlider" Minimum="0" Maximum="90" SmallChange="1" LargeChange="10" ValueChanged="TransparencyChanged" Margin="0,9,0,0"/>
+                                <Grid><TextBlock Tag="Непрозрачный" Style="{StaticResource Description}"/><TextBlock Tag="Прозрачный" Style="{StaticResource Description}" HorizontalAlignment="Right"/></Grid>
+                                <Border Height="1" Background="#30435D" Margin="0,18"/>
+                                <Grid><TextBlock Tag="Ширина виджета"/><TextBlock x:Name="WidthValue" HorizontalAlignment="Right" Foreground="{StaticResource SettingsAccent}" FontWeight="SemiBold"/></Grid>
+                                <Slider x:Name="WidthSlider" Minimum="280" Maximum="1200" SmallChange="10" LargeChange="100" ValueChanged="WidthChanged" Margin="0,9,0,0"/>
+                                <Grid><TextBlock Text="280 DIP" Style="{StaticResource Description}"/><TextBlock Text="1200 DIP" Style="{StaticResource Description}" HorizontalAlignment="Right"/></Grid>
+                            </StackPanel></Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem><TabItem.Header><TextBlock Tag="Поведение"/></TabItem.Header>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,10" PanningMode="VerticalOnly">
+                        <StackPanel>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <TextBlock Tag="Расположение" Style="{StaticResource SectionHeading}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <StackPanel><TextBlock Tag="Положение на панели задач" Margin="0,0,0,8"/><ComboBox x:Name="PlacementPicker" SelectionChanged="PlacementChanged"/></StackPanel>
+                                    <StackPanel Grid.Column="2"><TextBlock Tag="Монитор" Margin="0,0,0,8"/><ComboBox x:Name="MonitorPicker" SelectionChanged="MonitorChanged" DropDownOpened="MonitorOpened"/></StackPanel>
+                                </Grid>
+                                <CheckBox x:Name="PositionLockedToggle" Click="PositionLockedClick" Margin="0,16,0,0">
+                                    <StackPanel><TextBlock Tag="Закрепить положение" TextWrapping="Wrap"/><TextBlock Tag="Защитить виджет от случайного перемещения мышью." Style="{StaticResource Description}"/></StackPanel>
+                                </CheckBox>
+                            </StackPanel></Border>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <TextBlock Tag="Текст песни" Style="{StaticResource SectionHeading}"/>
+                                <CheckBox x:Name="LyricsToggle" Click="LyricsClick"><TextBlock Tag="Показывать строку песни" TextWrapping="Wrap"/></CheckBox>
+                                <CheckBox x:Name="OnlineLyricsToggle" Click="OnlineLyricsClick" Margin="0,10,0,0">
+                                    <StackPanel><TextBlock Tag="Онлайн-текст · LRCLIB" TextWrapping="Wrap"/><TextBlock Tag="Для поиска в LRCLIB передаются название, исполнитель, альбом и длительность песни." Style="{StaticResource Description}"/></StackPanel>
+                                </CheckBox>
+                                <Border Height="1" Background="#30435D" Margin="0,18"/>
+                                <Grid><TextBlock Tag="Синхронизация текста"/><TextBlock x:Name="OffsetValue" HorizontalAlignment="Right" Foreground="{StaticResource SettingsAccent}" FontWeight="SemiBold"/></Grid>
+                                <Slider x:Name="OffsetSlider" Minimum="-30" Maximum="30" TickFrequency="0.5" SmallChange="0.5" LargeChange="5" ValueChanged="OffsetChanged" Margin="0,9,0,0"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Tag="Положительный сдвиг показывает строки раньше." Style="{StaticResource Description}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                    <Button Grid.Column="1" Click="ResetOffsetClick" Padding="10,6"><TextBlock Tag="Сбросить сдвиг"/></Button>
+                                </Grid>
+                            </StackPanel></Border>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <TextBlock Tag="Общие" Style="{StaticResource SectionHeading}"/>
+                                <Grid Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="210"/></Grid.ColumnDefinitions><TextBlock Tag="Язык" VerticalAlignment="Center"/><ComboBox x:Name="LanguagePicker" Grid.Column="1" SelectionChanged="LanguageChanged"><ComboBoxItem Tag="en" Content="English"/><ComboBoxItem Tag="ru" Content="Русский"/></ComboBox></Grid>
+                                <CheckBox x:Name="StartupToggle" Click="StartupClick"><TextBlock Tag="Запускать вместе с Windows" TextWrapping="Wrap"/></CheckBox>
+                                <CheckBox x:Name="FullscreenToggle" Click="FullscreenClick" Margin="0,10,0,0"><TextBlock Tag="Скрывать в полноэкранном режиме" TextWrapping="Wrap"/></CheckBox>
+                                <CheckBox x:Name="VolumeToggle" Click="VolumeClick" Margin="0,10,0,0"><TextBlock Tag="Показывать изменение громкости" TextWrapping="Wrap"/></CheckBox>
+                            </StackPanel></Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem><TabItem.Header><TextBlock Tag="О программе"/></TabItem.Header>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,10" PanningMode="VerticalOnly">
+                        <StackPanel>
+                            <Border Style="{StaticResource Card}" Padding="24"><StackPanel>
+                                <TextBlock Text="QuietIsland" FontSize="27" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="VersionLabel" Foreground="{StaticResource SettingsAccent}" Margin="0,6,0,18"/>
+                                <TextBlock Tag="Музыка, текст песни и немного спокойствия — прямо на панели задач." FontSize="15" TextWrapping="Wrap" LineHeight="23"/>
+                                <TextBlock Tag="Нативное приложение для Windows. Без лишних окон, постоянных анимаций и отвлекающих элементов." Style="{StaticResource Description}" Margin="0,10,0,0"/>
+                            </StackPanel></Border>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <TextBlock Tag="Обновления" Style="{StaticResource SectionHeading}"/>
+                                <CheckBox x:Name="AutoUpdatesToggle" Click="AutoUpdatesClick">
+                                    <StackPanel><TextBlock Tag="Автоматически проверять обновления" TextWrapping="Wrap"/><TextBlock Tag="Тихая проверка раз в день. Установка — только с вашего согласия." Style="{StaticResource Description}"/></StackPanel>
+                                </CheckBox>
+                                <TextBlock x:Name="UpdateStatus" Style="{StaticResource Description}" Margin="0,20,0,12"/>
+                                <Button x:Name="CheckUpdatesButton" Click="CheckUpdatesClick" HorizontalAlignment="Left"><TextBlock Tag="Проверить обновления…"/></Button>
+                            </StackPanel></Border>
+                            <Border Style="{StaticResource Card}"><StackPanel>
+                                <TextBlock Tag="Проект" Style="{StaticResource SectionHeading}"/>
+                                <WrapPanel><Button Click="ReleasesClick" Margin="0,0,10,10"><TextBlock Tag="Релизы и обновления"/></Button><Button Click="SourceClick" Margin="0,0,0,10"><TextBlock Tag="Исходный код · MIT"/></Button></WrapPanel>
+                                <TextBlock Tag="Показать виджет: Ctrl+Alt+I · Скрыть: Ctrl+Alt+D" Style="{StaticResource Description}"/>
+                            </StackPanel></Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+            <Border Grid.Row="2" BorderBrush="#344962" BorderThickness="0,1,0,0" Margin="24,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#9ACBB2" Margin="0,0,8,0"/><TextBlock Tag="Изменения сохраняются автоматически" Foreground="{StaticResource TextMuted}" FontSize="11"/></StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
