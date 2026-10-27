@@ -5,7 +5,7 @@ namespace QuietIsland;
 
 internal static class UiText
 {
-    public static string Language { get; set; } = "ru";
+    public static string Language { get; set; } = "en";
     private static readonly Dictionary<string, string> English = new(StringComparer.Ordinal)
     {
         ["Показать виджет"] = "Show widget", ["Скрыть"] = "Hide", ["Расположение"] = "Placement",

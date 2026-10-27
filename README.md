@@ -4,9 +4,13 @@
 
 Music, album artwork, and synchronized lyrics in your Windows 11 x64 taskbar.
 
+![QuietIsland player preview with demo music, seeking, playback controls, and lyrics](docs/images/player-preview.png)
+
 **[Download the latest release](https://github.com/Shohruh04/QuietIsland/releases/latest)**
 
-Choose **Setup EXE** for installation and an uninstaller, or extract the **Portable ZIP** and run `QuietIsland.exe`. .NET is bundled; PowerShell and Windhawk are not required. Uninstall preserves settings and lyrics cache.
+**Setup EXE** is recommended: it bundles .NET for offline use and includes an uninstaller. **Portable ZIP** also bundles .NET; extract it and run `QuietIsland.exe`. Uninstall preserves settings and lyrics cache.
+
+**Light ZIP** is a smaller download without .NET. Install [**.NET 10 Desktop Runtime for Windows x64**](https://dotnet.microsoft.com/en-us/download/dotnet/10.0), then extract the ZIP and run `QuietIsland.exe`. All editions work without PowerShell or Windhawk. ZIP editions update manually from the release page.
 
 ## Features
 
@@ -18,6 +22,8 @@ Choose **Setup EXE** for installation and an uninstaller, or extract the **Porta
 - Hides automatically when no media session exists.
 
 Right-click the widget or tray icon for settings. Drag the artwork/title to move, use the top bar to seek, and scroll to adjust volume. `Ctrl+Alt+I` shows the widget; `Ctrl+Alt+D` toggles visibility. Player support depends on Windows Media Controls.
+
+![Demo lyrics preview and an overview of appearance, placement, lyrics timing, and controls](docs/images/lyrics-and-settings.png)
 
 ## Development
 

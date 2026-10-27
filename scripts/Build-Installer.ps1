@@ -8,6 +8,33 @@ $project = Split-Path $PSScriptRoot -Parent
 if (-not $Version) { $Version = ([xml](Get-Content (Join-Path $project 'QuietIsland.csproj') -Raw)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1 }
 $artifacts = Join-Path $project 'artifacts'
 $publish = Join-Path $artifacts "publish\$Version\win-x64"
+$lightPublish = Join-Path $artifacts "publish\$Version\win-x64-light"
+
+function Remove-PublishOutput([string]$Directory) {
+    # Remove only generated publish directories, never program or user-data files.
+    $allowed = [IO.Path]::GetFullPath($artifacts).TrimEnd('\') + '\publish\'
+    $target = [IO.Path]::GetFullPath($Directory)
+    if (-not $target.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe publish output path.' }
+    if (Test-Path -LiteralPath $target) {
+        $resolved = (Resolve-Path -LiteralPath $target).Path
+        if (-not $resolved.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe publish output path.' }
+        if ((Get-Item -LiteralPath $target).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Publish output must not be a link.' }
+        Remove-Item -LiteralPath $target -Recurse -Force
+    }
+}
+
+function Assert-DistributionContents([string]$Directory) {
+    $scripts = @(Get-ChildItem -LiteralPath $Directory -Recurse -File | Where-Object Extension -in '.ps1', '.psm1', '.bat', '.cmd')
+    if ($scripts.Count) { throw 'User distributions must not contain developer scripts.' }
+}
+
+function Copy-DistributionNotices([string]$Directory) {
+    $licenses = Join-Path $Directory 'Licenses'
+    New-Item -ItemType Directory -Path $licenses -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $project 'THIRD_PARTY_NOTICES.md') -Destination $Directory -Force
+    Copy-Item -LiteralPath (Join-Path $project 'LICENSE'),(Join-Path $project 'CHANGELOG.md') -Destination $Directory -Force
+    Copy-Item -Path (Join-Path $project 'installer\licenses\*') -Destination $licenses -Force
+}
 
 if (-not $IsccPath) {
     $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
@@ -26,24 +53,12 @@ if (-not $IsccPath -or -not (Test-Path -LiteralPath $IsccPath -PathType Leaf)) {
 $IsccPath = (Resolve-Path -LiteralPath $IsccPath).Path
 
 New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
-# Remove only this generated version directory, never program or user-data files.
-if (Test-Path -LiteralPath $publish) {
-    $resolved = (Resolve-Path -LiteralPath $publish).Path
-    $allowed = [IO.Path]::GetFullPath($artifacts).TrimEnd('\') + '\publish\'
-    if (-not $resolved.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe publish output path.' }
-    if ((Get-Item -LiteralPath $publish).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Publish output must not be a link.' }
-    Remove-Item -LiteralPath $publish -Recurse -Force
-}
+Remove-PublishOutput $publish
 & dotnet publish (Join-Path $project 'QuietIsland.csproj') -c Release -r win-x64 --self-contained true -o $publish "-p:Version=$Version" '-p:PublishSingleFile=false' '-p:PublishTrimmed=false'
 if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
-$scripts = @(Get-ChildItem -LiteralPath $publish -Recurse -File | Where-Object Extension -in '.ps1', '.psm1', '.bat', '.cmd')
-if ($scripts.Count) { throw 'User distributions must not contain developer scripts.' }
-
+Assert-DistributionContents $publish
+Copy-DistributionNotices $publish
 $licenses = Join-Path $publish 'Licenses'
-New-Item -ItemType Directory -Path $licenses -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $project 'THIRD_PARTY_NOTICES.md') -Destination $publish -Force
-Copy-Item -LiteralPath (Join-Path $project 'LICENSE'),(Join-Path $project 'CHANGELOG.md') -Destination $publish -Force
-Copy-Item -Path (Join-Path $project 'installer\licenses\*') -Destination $licenses -Force
 
 # Include the exact runtime pack licenses selected by restore, not a different installed runtime.
 $assets = Get-Content -LiteralPath (Join-Path $project 'obj\project.assets.json') -Raw | ConvertFrom-Json
@@ -67,7 +82,20 @@ foreach ($pack in $runtimePacks) {
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 $zip = Join-Path $artifacts "QuietIsland-$Version-win-x64-portable.zip"
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip -CompressionLevel Optimal -Force
+
+# Keep runtime-pack license collection above: this restore changes project.assets.json.
+Remove-PublishOutput $lightPublish
+& dotnet publish (Join-Path $project 'QuietIsland.csproj') -c Release -r win-x64 --self-contained false -o $lightPublish "-p:Version=$Version" '-p:PublishSingleFile=false' '-p:PublishTrimmed=false'
+if ($LASTEXITCODE -ne 0) { throw 'Light publish failed.' }
+Assert-DistributionContents $lightPublish
+$runtimeFiles = @(Get-ChildItem -LiteralPath $lightPublish -Recurse -File | Where-Object Name -in 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll', 'System.Private.CoreLib.dll', 'clrjit.dll')
+if ($runtimeFiles.Count) { throw 'Light distribution must not contain the .NET runtime.' }
+Copy-DistributionNotices $lightPublish
+$lightZip = Join-Path $artifacts "QuietIsland-$Version-win-x64-light.zip"
+Compress-Archive -Path (Join-Path $lightPublish '*') -DestinationPath $lightZip -CompressionLevel Optimal -Force
+
 $setup = Join-Path $artifacts "QuietIsland-Setup-$Version-win-x64.exe"
-Get-FileHash -LiteralPath $setup,$zip -Algorithm SHA256 | ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), [IO.Path]::GetFileName($_.Path) } | Set-Content -LiteralPath (Join-Path $artifacts "QuietIsland-$Version-SHA256SUMS.txt") -Encoding utf8
+Get-FileHash -LiteralPath $setup,$zip,$lightZip -Algorithm SHA256 | ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), [IO.Path]::GetFileName($_.Path) } | Set-Content -LiteralPath (Join-Path $artifacts "QuietIsland-$Version-SHA256SUMS.txt") -Encoding utf8
 Write-Output "Installer: $setup"
 Write-Output "Portable:  $zip"
+Write-Output "Light:     $lightZip"

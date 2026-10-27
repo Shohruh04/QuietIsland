@@ -85,7 +85,7 @@ internal sealed class TrayMenuController : IDisposable
         themes.DropDownOpening += (_, _) => { foreach (Forms.ToolStripMenuItem item in themes.DropDownItems) item.Checked = (string?)item.Tag == _settings.Theme; };
         _menu.Items.Add(themes);
         var transparency = new Forms.ToolStripMenuItem("Прозрачность фона");
-        foreach (var percent in new[] { 0, 10, 25, 40, 60, 80 })
+        foreach (var percent in new[] { 0, 10, 25, 40, 60, 80, 90 })
         {
             var opacity = 100 - percent;
             transparency.DropDownItems.Add(new Forms.ToolStripMenuItem(percent == 0 ? "Непрозрачный фон" : percent + "% прозрачности", null,

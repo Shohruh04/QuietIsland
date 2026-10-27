@@ -44,7 +44,7 @@ internal sealed class UpdateController : IDisposable
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(30), _lifetime.Token);
-            try { GitHubUpdateService.CleanOldDownloads(_directory, DateTime.UtcNow); }
+            try { await Task.Run(() => GitHubUpdateService.CleanOldDownloads(_directory, DateTime.UtcNow), _lifetime.Token); }
             catch (Exception exception) { AppLog.Write(exception); }
             while (!_disposed)
             {
@@ -139,13 +139,14 @@ internal sealed class UpdateController : IDisposable
     private sealed record DialogOwner(IntPtr Handle) : Forms.IWin32Window;
     private sealed class DownloadDialog : Forms.Form
     {
+        private readonly System.Drawing.Icon _icon = new(Path.Combine(AppContext.BaseDirectory, "Assets", "QuietIsland.ico"));
         private readonly CancellationTokenSource _cancellation;
         private readonly Forms.ProgressBar _progress = new() { Left = 20, Top = 46, Width = 320, Height = 18 };
         private readonly Forms.Label _label = new() { Left = 20, Top = 18, Width = 320, Height = 22 };
         public DownloadDialog(CancellationTokenSource cancellation)
         {
             _cancellation = cancellation;
-            Text = "QuietIsland"; ClientSize = new System.Drawing.Size(360, 120);
+            Text = "QuietIsland"; Icon = _icon; ClientSize = new System.Drawing.Size(360, 120);
             FormBorderStyle = Forms.FormBorderStyle.FixedDialog; MaximizeBox = MinimizeBox = false;
             StartPosition = Forms.FormStartPosition.CenterScreen; ShowInTaskbar = true;
             _label.Text = UiText.T("Загрузка обновления…");
@@ -160,6 +161,7 @@ internal sealed class UpdateController : IDisposable
             _label.Text = percent < 100 ? UiText.T("Загрузка обновления…") + " " + percent + "%" : UiText.T("Проверка файла…");
         }
         protected override void OnFormClosing(Forms.FormClosingEventArgs e) { _cancellation.Cancel(); base.OnFormClosing(e); }
+        protected override void Dispose(bool disposing) { base.Dispose(disposing); if (disposing) _icon.Dispose(); }
     }
     public void Dispose()
     {

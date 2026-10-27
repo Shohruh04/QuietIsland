@@ -29,6 +29,12 @@ internal static class Verification
         island.OpenPanel();
         checks["ShowCommandDoesNotStealFocus"] = NativeWindow.GetForegroundWindow() == foreground && foreground != island.Handle;
         checks["ControlsAreInteractive"] = (NativeWindow.GetWindowLong(island.Handle, NativeWindow.ExStyle) & NativeWindow.Transparent) == 0;
+        var oldWidth = island.Width;
+        island.Width = 280; island.ApplyControlLayout(); island.UpdateLayout();
+        var previous = (System.Windows.Controls.Button)island.FindName("Previous");
+        var next = (System.Windows.Controls.Button)island.FindName("Next");
+        checks["CompactTransportControlsRemainVisible"] = previous.Visibility == Visibility.Visible && next.Visibility == Visibility.Visible && previous.ActualWidth > 0 && next.ActualWidth > 0;
+        island.Width = oldWidth; island.ApplyControlLayout(); island.UpdateLayout();
         var actualBar = NativeWindow.Taskbar(NativeWindow.TaskbarHandle(new JsonSettingsStore().Load().MonitorDevice)).bounds;
         checks["VisibleWindowStaysInsideTaskbar"] = island.Opacity == 0 || (NativeWindow.GetWindowRect(island.Handle, out var actualWindow) && actualWindow.Top >= actualBar.Top && actualWindow.Bottom <= actualBar.Bottom);
         var monitor = NativeWindow.PrimaryMonitor();

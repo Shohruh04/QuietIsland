@@ -43,11 +43,21 @@ public partial class App : Application
                 await writer.WriteLineAsync(command);
                 using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, true);
                 using var timeout = new CancellationTokenSource(5000);
-                await reader.ReadLineAsync(timeout.Token);
+                var response = await reader.ReadLineAsync(timeout.Token);
+                if (command == "--status-json")
+                {
+                    if (response?.StartsWith("{", StringComparison.Ordinal) == true) Console.WriteLine(response);
+                    else { Console.Error.WriteLine("The running copy does not support JSON status."); Environment.ExitCode = 1; }
+                }
             }
-            catch (Exception ex) { AppLog.Write(ex); }
-            Shutdown(); return;
+            catch (Exception ex)
+            {
+                AppLog.Write(ex);
+                if (command == "--status-json") { Console.Error.WriteLine(ex.Message); Environment.ExitCode = 1; }
+            }
+            Shutdown(Environment.ExitCode); return;
         }
+        if (command == "--status-json") { Console.Error.WriteLine("QuietIsland is not running."); Shutdown(1); return; }
         if (command is "--exit" or "--disable-startup")
         {
             if (command == "--disable-startup") new StartupRegistration().SetEnabled(false);
@@ -82,7 +92,13 @@ public partial class App : Application
                 await pipe.WaitForConnectionAsync(token);
                 using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, true);
                 var command = await reader.ReadLineAsync(token);
-                if (command == "--exit")
+                if (command == "--status-json")
+                {
+                    var json = await Dispatcher.InvokeAsync(island.GetStatusJson);
+                    using var writer = new StreamWriter(pipe, Encoding.UTF8, 1024, true) { AutoFlush = true };
+                    await writer.WriteLineAsync(json);
+                }
+                else if (command == "--exit")
                 {
                     using var writer = new StreamWriter(pipe, Encoding.UTF8, 1024, true) { AutoFlush = true };
                     await writer.WriteLineAsync("ok");

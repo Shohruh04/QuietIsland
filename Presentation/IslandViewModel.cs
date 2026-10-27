@@ -36,7 +36,7 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     {
         Settings = settings; _store = store; Startup = startup; Media = media;
         Audio = audio; Lyrics = lyrics; Focus = focus; _dispatcher = dispatcher;
-        UiText.Language = settings.Language == "en" ? "en" : "ru";
+        UiText.Language = settings.Language == "ru" ? "ru" : "en";
         PlayPauseCommand = new AsyncActionCommand(() => Media.ControlAsync("toggle"), () => CanPlayPause);
         PreviousCommand = new AsyncActionCommand(() => Media.ControlAsync("previous"), () => CanPrevious);
         NextCommand = new AsyncActionCommand(() => Media.ControlAsync("next"), () => CanNext);
@@ -147,7 +147,7 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
         SaveSettings();
     }
     public void SetTheme(string theme) { if (Array.Exists(ThemePalette.All, item => item.Id == theme)) { Settings.Theme = theme; SaveSettings(); } }
-    public void SetTransparency(int percent) { Settings.BackgroundOpacityPercent = 100 - Math.Clamp(percent, 0, 80); SaveSettings(); }
+    public void SetTransparency(int percent) { Settings.BackgroundOpacityPercent = 100 - Math.Clamp(percent, 0, 90); SaveSettings(); }
     public void ToggleLyrics()
     {
         Settings.ShowLyrics = !Settings.ShowLyrics; SaveSettings();
@@ -165,7 +165,10 @@ internal sealed class IslandViewModel : INotifyPropertyChanged, IDisposable
     public void StartFocusSeconds(int seconds) { Focus.Start(TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 86400))); Refresh(); }
     public void ToggleFocusPause() { Focus.TogglePause(); Refresh(); }
     public void StopFocus() { Focus.Stop(); Refresh(); }
-    public void ImportLyrics(string path) { Lyrics.Import(path); Settings.ShowLyrics = true; SaveSettings(); }
+    public async Task ImportLyricsAsync(string path)
+    {
+        if (await Lyrics.ImportAsync(path) && !_disposed) { Settings.ShowLyrics = true; SaveSettings(); }
+    }
     public void SetVolumeDelta(float delta) => Audio.SetVolume(Audio.Volume + delta);
     public bool HandleCommand(string command)
     {

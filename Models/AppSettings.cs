@@ -12,9 +12,9 @@ internal sealed class AppSettings
     public string Placement { get; set; } = "left";
     public int LyricsOffsetMs { get; set; }
     public string Theme { get; set; } = "obsidian";
-    public int BackgroundOpacityPercent { get; set; } = 90;
+    public int BackgroundOpacityPercent { get; set; } = 20;
     public string MonitorDevice { get; set; } = "";
-    public string Language { get; set; } = "ru";
-    public int WidthDip { get; set; } = 480;
+    public string Language { get; set; } = "en";
+    public int WidthDip { get; set; } = 360;
     public double PositionFraction { get; set; } = .5;
 }

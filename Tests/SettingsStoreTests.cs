@@ -26,11 +26,11 @@ public sealed class SettingsStoreTests
     public void MissingSettingsUseExistingDefaults()
     {
         var settings = _store.Load();
-        Assert.AreEqual("ru", settings.Language);
+        Assert.AreEqual("en", settings.Language);
         Assert.AreEqual("left", settings.Placement);
         Assert.AreEqual("obsidian", settings.Theme);
-        Assert.AreEqual(480, settings.WidthDip);
-        Assert.AreEqual(90, settings.BackgroundOpacityPercent);
+        Assert.AreEqual(360, settings.WidthDip);
+        Assert.AreEqual(20, settings.BackgroundOpacityPercent);
         Assert.AreEqual(.5, settings.PositionFraction);
         Assert.IsTrue(settings.TaskbarPlacement && settings.VolumeAlerts && settings.OnlineLyrics && settings.ShowLyrics && settings.HideInFullscreen);
         Assert.IsFalse(settings.Hidden);
@@ -48,7 +48,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(640, settings.WidthDip);
         Assert.IsTrue(settings.Hidden);
         Assert.IsTrue(settings.OnlineLyrics && settings.ShowLyrics && settings.AutoCheckUpdates);
-        Assert.AreEqual(90, settings.BackgroundOpacityPercent);
+        Assert.AreEqual(20, settings.BackgroundOpacityPercent);
     }
 
     [TestMethod]
@@ -58,7 +58,7 @@ public sealed class SettingsStoreTests
     public void InvalidSettingsRecoverWithDefaults(string json)
     {
         File.WriteAllText(Path.Combine(_directory, "settings.json"), json);
-        Assert.AreEqual(480, _store.Load().WidthDip);
+        Assert.AreEqual(360, _store.Load().WidthDip);
     }
 
     [TestMethod]

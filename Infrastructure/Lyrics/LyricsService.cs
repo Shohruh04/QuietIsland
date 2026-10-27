@@ -62,22 +62,37 @@ internal sealed class LyricsService : IDisposable
         _pending = new CancellationTokenSource();
         _ = LoadAsync(track, _key, version, _enabled, skipCache, _pending.Token);
     }
-    public void Import(string path)
+    public async Task<bool> ImportAsync(string path)
     {
-        if (_disposed) return;
+        if (_disposed) return false;
+        if (_key.Length == 0) { Document = new("Сначала выберите песню", new()); Changed?.Invoke(); return false; }
+        var key = _key;
+        var version = ++_generation;
+        CancelPending();
+        _pending = new CancellationTokenSource();
+        var token = _pending.Token;
         try
         {
-            if (_key.Length == 0) { Document = new("Сначала выберите песню", new()); Changed?.Invoke(); return; }
-            if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("Файл текста слишком большой");
-            var lines = Parse(File.ReadAllText(path));
-            if (lines.Count == 0) { Document = new("В файле нет временных меток", new()); Changed?.Invoke(); return; }
-            var version = ++_generation; CancelPending();
+            var lines = await Task.Run(async () =>
+            {
+                using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, true);
+                return Parse(await LyricsBudget.ReadTextAsync(input, token).ConfigureAwait(false), token);
+            }, token);
+            if (!Current(key, version, token)) return false;
+            if (lines.Count == 0) { Document = new("В файле нет временных меток", new()); Changed?.Invoke(); return false; }
             Document = new("Локальный синхронный текст", lines);
             _options = new(); Candidates = Array.Empty<LyricsCandidate>();
             Changed?.Invoke();
-            _ = SaveCacheAsync(_key, version, new(Document, _options));
+            _ = SaveCacheAsync(key, version, new(Document, _options));
+            return true;
         }
-        catch (Exception ex) { AppLog.Write(ex); }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            AppLog.Write(new InvalidOperationException("Ошибка импорта текста: " + ex.GetType().Name));
+            Publish(key, version, new("Не удалось загрузить текст песни", new()), token);
+            return false;
+        }
     }
     public void SelectCandidate(int index)
     {
@@ -128,21 +143,14 @@ internal sealed class LyricsService : IDisposable
                     if (search.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable)
                     { Publish(key, version, Busy(), token); return; }
                     search.EnsureSuccessStatusCode();
-                    using var json = JsonDocument.Parse(await search.Content.ReadAsStringAsync(token));
-                    if (json.RootElement.ValueKind == JsonValueKind.Array)
-                        foreach (var item in json.RootElement.EnumerateArray().Take(20))
-                        { var parsed = ReadCandidate(item); if (parsed != null) options.Add(parsed); }
+                    options = await ReadOptionsAsync(search.Content, true, track, token);
                 }
                 else
                 {
                     response.EnsureSuccessStatusCode();
-                    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
-                    var parsed = ReadCandidate(json.RootElement);
-                    if (parsed != null) options.Add(parsed);
+                    options = await ReadOptionsAsync(response.Content, false, track, token);
                 }
                 if (!Current(key, version, token)) return;
-                options = options.OrderByDescending(o => IsAutomaticMatch(o.Candidate, track))
-                    .ThenBy(o => track.Duration > 0 ? Math.Abs(o.Candidate.Duration - track.Duration) : 0).ToList();
                 SetOptions(options);
                 var automatic = options.FirstOrDefault(o => o.Candidate.Synced && IsAutomaticMatch(o.Candidate, track));
                 Document = automatic?.Document ?? SelectionPrompt(options.Count);
@@ -181,7 +189,23 @@ internal sealed class LyricsService : IDisposable
         if (wait > TimeSpan.Zero) await Task.Delay(wait, token);
         return true;
     }
-    private static CachedLyricsCandidate? ReadCandidate(JsonElement root)
+    private static Task<List<CachedLyricsCandidate>> ReadOptionsAsync(HttpContent content, bool search, MediaState track, CancellationToken token) => Task.Run(async () =>
+    {
+        using var input = await content.ReadAsStreamAsync(token).ConfigureAwait(false);
+        using var json = JsonDocument.Parse(await LyricsBudget.ReadTextAsync(input, token).ConfigureAwait(false));
+        var options = new List<CachedLyricsCandidate>();
+        var items = search && json.RootElement.ValueKind == JsonValueKind.Array
+            ? json.RootElement.EnumerateArray().Take(20) : new[] { json.RootElement };
+        foreach (var item in items)
+        {
+            token.ThrowIfCancellationRequested();
+            try { var parsed = ReadCandidate(item, token); if (parsed != null) options.Add(parsed); }
+            catch (InvalidDataException) { } // An oversized version cannot make all other versions unusable.
+        }
+        return options.OrderByDescending(o => IsAutomaticMatch(o.Candidate, track))
+            .ThenBy(o => track.Duration > 0 ? Math.Abs(o.Candidate.Duration - track.Duration) : 0).ToList();
+    }, token);
+    private static CachedLyricsCandidate? ReadCandidate(JsonElement root, CancellationToken token)
     {
         if (root.ValueKind != JsonValueKind.Object) return null;
         static string Text(JsonElement element, string name) => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
@@ -189,10 +213,11 @@ internal sealed class LyricsService : IDisposable
         var artist = Text(root, "artistName");
         var duration = root.TryGetProperty("duration", out var d) && d.ValueKind == JsonValueKind.Number && d.TryGetDouble(out var seconds) && double.IsFinite(seconds) ? seconds : 0;
         var instrumental = root.TryGetProperty("instrumental", out var ins) && ins.ValueKind == JsonValueKind.True;
-        var lines = Parse(Text(root, "syncedLyrics")); var plain = Text(root, "plainLyrics");
+        var lines = Parse(Text(root, "syncedLyrics"), token); var plain = Text(root, "plainLyrics");
         if (!instrumental && lines.Count == 0 && string.IsNullOrWhiteSpace(plain)) return null;
         var status = instrumental ? "Инструментальная композиция" : lines.Count > 0 ? "Синхронный текст · LRCLIB" : "Текст без временных меток";
-        return new(new(title, artist, Math.Max(0, duration), Text(root, "albumName"), lines.Count > 0), new(status, lines, plain));
+        var candidate = new CachedLyricsCandidate(new(title, artist, Math.Max(0, duration), Text(root, "albumName"), lines.Count > 0), new(status, lines, plain));
+        return LyricsBudget.ValidCache(new(null, new() { candidate })) ? candidate : null;
     }
     internal static string PrimaryArtist(string artist)
     {
@@ -215,51 +240,59 @@ internal sealed class LyricsService : IDisposable
 
     private static string CacheDirectory => Path.Combine(AppPaths.DataDirectory, "Lyrics");
     private static string CachePath(string key) => Path.Combine(CacheDirectory, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))) + ".json");
-    private static async Task<LyricsCacheEntry?> ReadCacheAsync(string key, CancellationToken token)
+    private static Task<LyricsCacheEntry?> ReadCacheAsync(string key, CancellationToken token) => Task.Run(async () =>
     {
         var path = CachePath(key);
-        if (!File.Exists(path) || DateTime.UtcNow - File.GetLastWriteTimeUtc(path) >= TimeSpan.FromDays(30) || new FileInfo(path).Length > 1024 * 1024) return null;
         try
         {
-            var data = await File.ReadAllTextAsync(path, token);
+            if (!File.Exists(path) || DateTime.UtcNow - File.GetLastWriteTimeUtc(path) >= TimeSpan.FromDays(30)) return null;
+            using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, true);
+            var data = await LyricsBudget.ReadTextAsync(input, token).ConfigureAwait(false);
             using var json = JsonDocument.Parse(data);
+            LyricsCacheEntry? entry;
             if (json.RootElement.TryGetProperty("Lines", out _))
             {
                 var old = JsonSerializer.Deserialize<LyricsDocument>(data);
-                return old == null ? null : new(old, new());
+                entry = old == null ? null : new(old, new());
             }
-            var entry = JsonSerializer.Deserialize<LyricsCacheEntry>(data);
-            return entry?.Options != null ? entry : null;
+            else entry = JsonSerializer.Deserialize<LyricsCacheEntry>(data);
+            return entry != null && LyricsBudget.ValidCache(entry) ? entry : null;
         }
         catch (JsonException) { return null; }
         catch (IOException) { return null; }
         catch (UnauthorizedAccessException) { return null; }
-    }
+    }, token);
     private async Task SaveCacheAsync(string key, int version, LyricsCacheEntry entry)
     {
-        string? temporary = null;
-        await _cacheGate.WaitAsync();
+        await _cacheGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (_disposed || version != _generation || key != _key) return;
-            Directory.CreateDirectory(CacheDirectory);
-            var path = CachePath(key);
-            temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(entry));
-            if (_disposed || version != _generation || key != _key) return;
-            File.Move(temporary, path, true); temporary = null;
-            foreach (var old in new DirectoryInfo(CacheDirectory).GetFiles("*.json")
-                .Where(f => Regex.IsMatch(f.Name, @"^[A-F0-9]{64}\.json$"))
-                .OrderByDescending(f => f.LastWriteTimeUtc).Skip(100)) old.Delete();
+            await Task.Run(async () =>
+            {
+                string? temporary = null;
+                try
+                {
+                    if (!Current(key, version, default)) return;
+                    Directory.CreateDirectory(CacheDirectory);
+                    var path = CachePath(key);
+                    temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, true))
+                        await LyricsBudget.WriteCacheAsync(output, entry).ConfigureAwait(false);
+                    if (!Current(key, version, default)) return;
+                    File.Move(temporary, path, true); temporary = null;
+                    var files = new DirectoryInfo(CacheDirectory).GetFiles("*.json")
+                        .Where(f => Regex.IsMatch(f.Name, @"^[A-F0-9]{64}\.json$"))
+                        .OrderByDescending(f => f.LastWriteTimeUtc).ToArray();
+                    for (var i = 0; i < files.Length; i++)
+                        if (i >= 100 || DateTime.UtcNow - files[i].LastWriteTimeUtc >= TimeSpan.FromDays(30)) files[i].Delete();
+                }
+                catch (Exception ex) { AppLog.Write(new IOException("Ошибка кеша текста: " + ex.GetType().Name)); }
+                finally { if (temporary != null) { try { File.Delete(temporary); } catch { } } }
+            }).ConfigureAwait(false);
         }
-        catch (Exception ex) { AppLog.Write(new IOException("Ошибка кеша текста: " + ex.GetType().Name)); }
-        finally
-        {
-            if (temporary != null) { try { File.Delete(temporary); } catch { } }
-            _cacheGate.Release();
-        }
+        finally { _cacheGate.Release(); }
     }
-    private bool Current(string key, int version, CancellationToken token) => !_disposed && key == _key && version == _generation && !token.IsCancellationRequested;
+    private bool Current(string key, int version, CancellationToken token) => !Volatile.Read(ref _disposed) && key == Volatile.Read(ref _key) && version == Volatile.Read(ref _generation) && !token.IsCancellationRequested;
     private void Publish(string key, int version, LyricsDocument document, CancellationToken token)
     { if (Current(key, version, token)) { Document = document; Changed?.Invoke(); } }
     private void CancelPending() { _pending?.Cancel(); _pending?.Dispose(); _pending = null; }
@@ -276,21 +309,6 @@ internal sealed class LyricsService : IDisposable
         while (low <= high) { var middle = low + (high - low) / 2; if (lines[middle].Seconds <= seconds) { index = middle; low = middle + 1; } else high = middle - 1; }
         return (index > 0 ? lines[index - 1].Text : "", index >= 0 ? lines[index].Text : "♪", index + 1 < lines.Count ? lines[index + 1].Text : "");
     }
-    internal static List<LyricLine> Parse(string lrc)
-    {
-        var result = new List<LyricLine>();
-        var offsetMatch = Regex.Match(lrc, @"\[offset:([+-]?\d+)\]", RegexOptions.IgnoreCase);
-        var offset = offsetMatch.Success && int.TryParse(offsetMatch.Groups[1].Value, out var ms) ? ms / 1000.0 : 0;
-        foreach (var line in lrc.Split('\n'))
-        {
-            var stamps = Regex.Matches(line, @"\[(\d{1,3}):(\d{2}(?:[.,]\d{1,3})?)\]");
-            if (stamps.Count == 0) continue;
-            var text = Regex.Replace(line, @"\[[^\]]*\]", "").Trim();
-            foreach (Match stamp in stamps)
-                if (double.TryParse(stamp.Groups[2].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
-                    result.Add(new(Math.Max(0, int.Parse(stamp.Groups[1].Value, CultureInfo.InvariantCulture) * 60 + seconds - offset), text));
-        }
-        return result.OrderBy(line => line.Seconds).ToList();
-    }
+    internal static List<LyricLine> Parse(string lrc, CancellationToken token = default) => LyricsBudget.Parse(lrc, token);
     public void Dispose() { if (_disposed) return; _disposed = true; _generation++; CancelPending(); _client.Dispose(); }
 }

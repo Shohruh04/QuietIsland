@@ -34,7 +34,7 @@ public partial class IslandWindow : Window
         InitializeComponent();
         _viewModel = viewModel; DataContext = viewModel; _updates = updates;
         _monitorDevice = viewModel.Settings.MonitorDevice;
-        _tray = new TrayMenuController(viewModel, OpenPanel, ToggleHidden, ImportLyrics, CustomizeWidth, CustomizePosition, ExitApp, updates, () => Handle);
+        _tray = new TrayMenuController(viewModel, OpenPanel, ToggleHidden, () => _ = ImportLyricsAsync(), CustomizeWidth, CustomizePosition, ExitApp, updates, () => Handle);
         _placement = new TaskbarPlacementController(this, viewModel.Settings, space,
             () => viewModel.Media.State.Available, () => _tray.IsMenuVisible, ApplyPlacement);
         _placement.OpenRequested += OpenPanel;
@@ -62,10 +62,17 @@ public partial class IslandWindow : Window
         var scale = _placement.Scale;
         Width = bounds.Width / scale; Height = bounds.Height / scale;
         NativeWindow.PlaceWithoutFocus(Handle, bounds);
+        ApplyControlLayout();
+    }
+    internal void ApplyControlLayout()
+    {
         var size = Math.Clamp(Height - 10, 24, 40);
         ArtBorder.Width = ArtBorder.Height = size;
         ArtworkClip.Rect = new Rect(0, 0, size - 2, size - 2);
-        Previous.Visibility = Next.Visibility = Width >= 360 ? Visibility.Visible : Visibility.Collapsed;
+        Previous.Visibility = Next.Visibility = Visibility.Visible;
+        Previous.Width = Next.Width = Width < 360 ? 24 : 28;
+        PlayPause.Width = Width < 360 ? 32 : 34;
+        LyricsButton.Width = Width < 360 ? 24 : 28;
     }
     private void OnSettingsChanged()
     {
@@ -157,17 +164,18 @@ public partial class IslandWindow : Window
         await _viewModel.CompleteSeekAsync(target, _seekTrack);
     }
     private void SeekCaptureLost(object sender, MouseEventArgs args) { if (_seeking) { _seeking = false; _viewModel.CancelSeek(); } }
-    private void ImportLyrics()
+    private async Task ImportLyricsAsync()
     {
         var dialog = new OpenFileDialog { Filter = UiText.T("Синхронный текст (*.lrc)|*.lrc"), Title = UiText.T("Текст для текущей песни") };
-        if (dialog.ShowDialog(this) == true) _viewModel.ImportLyrics(dialog.FileName);
+        if (dialog.ShowDialog(this) == true) await _viewModel.ImportLyricsAsync(dialog.FileName);
     }
     private sealed record DialogOwner(IntPtr Handle) : Forms.IWin32Window;
     private void CustomizeWidth() => CustomizeNumber("Ширина виджета", "Ширина (280–1200 DIP)", 280, 1200, Math.Clamp(_viewModel.Settings.WidthDip, 280, 1200), _viewModel.SetWidth);
     private void CustomizePosition() => CustomizeNumber("Положение виджета", "Положение (0% слева — 100% справа)", 0, 100, (int)Math.Round(Math.Clamp(_viewModel.Settings.PositionFraction, 0, 1) * 100), value => _viewModel.SetPosition(value.ToString(CultureInfo.InvariantCulture)));
     private void CustomizeNumber(string title, string description, int minimum, int maximum, int current, Action<int> accept)
     {
-        using var dialog = new Forms.Form { Text = UiText.T(title), ClientSize = new System.Drawing.Size(300, 130), FormBorderStyle = Forms.FormBorderStyle.FixedDialog, StartPosition = Forms.FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false };
+        using var icon = new System.Drawing.Icon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "QuietIsland.ico"));
+        using var dialog = new Forms.Form { Text = UiText.T(title), Icon = icon, ClientSize = new System.Drawing.Size(300, 130), FormBorderStyle = Forms.FormBorderStyle.FixedDialog, StartPosition = Forms.FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false };
         using var label = new Forms.Label { Text = UiText.T(description), AutoSize = true, Left = 16, Top = 14 };
         using var value = new Forms.NumericUpDown { Minimum = minimum, Maximum = maximum, Value = current, Left = 16, Top = 40, Width = 268 };
         using var apply = new Forms.Button { Text = UiText.T("Применить"), DialogResult = Forms.DialogResult.OK, Left = 108, Top = 86, Width = 86 };
@@ -188,6 +196,7 @@ public partial class IslandWindow : Window
         }
     }
     internal void WriteStatus() => WindowDiagnostics.WriteStatus(this, _viewModel, _placement);
+    internal string GetStatusJson() => WindowDiagnostics.StatusJson(this, _viewModel, _placement);
     private async Task VerifyMediaAsync() { await _viewModel.Media.SeekAsync(_viewModel.Media.PositionSeconds); if (!_closing) WriteStatus(); }
     private void ExitApp() { Close(); Application.Current.Shutdown(); }
     private void Cleanup(object? sender, EventArgs args)
